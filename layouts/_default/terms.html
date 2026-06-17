@@ -1,0 +1,63 @@
+{{/*
+  Trust Anchor — local override of Blowfish's terms.html.
+  Only change vs upstream: the "Meta" category card is hidden from the
+  /categories/ landing page. The Meta term page itself stays reachable
+  via the post's category badge — it's just not advertised in the grid.
+*/}}
+{{ define "main" }}
+  {{ .Scratch.Set "scope" "terms" }}
+  {{ $showHero := .Params.showHero | default site.Params.taxonomy.showHero | default false }}
+  {{ if $showHero }}
+    {{ $heroStyle := print "hero/" site.Params.taxonomy.heroStyle ".html" }}
+    {{ if templates.Exists ( printf "partials/%s" $heroStyle ) }}
+      {{ partial $heroStyle . }}
+    {{ else }}
+      {{ partial "hero/basic.html" . }}
+    {{ end }}
+  {{- end -}}
+
+
+  <header class="mt-5">
+    {{ if .Params.showBreadcrumbs | default (site.Params.taxonomy.showBreadcrumbs | default false) }}
+      {{ partial "breadcrumbs.html" . }}
+    {{ end }}
+    <h1 class="mt-5 text-4xl font-extrabold text-neutral-900 dark:text-neutral">{{ .Title }}</h1>
+    <div class="mt-1 mb-2 text-base text-neutral-500 dark:text-neutral-400 print:hidden">
+      {{ partial "article-meta/taxonomy.html" (dict "context" . "scope" "single") }}
+    </div>
+  </header>
+  {{ if .Content }}
+    <section class="flex flex-col max-w-full mt-0 prose dark:prose-invert lg:flex-row">
+      <div class="min-w-0 min-h-0 max-w-prose">
+        {{ .Content }}
+      </div>
+    </section>
+  {{ end }}
+
+  {{/* Trust Anchor — categories hidden from the landing grid. */}}
+  {{ $hidden := slice "Meta" "meta" }}
+
+  {{/* Tags get a denser grid with compact cards; categories keep the descriptive cards. */}}
+  {{ $isTags := eq .Data.Plural "tags" }}
+  {{ $sectionClass := cond $isTags "ta-tags-grid w-full" "ta-categories-grid w-full grid gap-4 sm:grid-cols-2 md:grid-cols-3" }}
+  {{ $cardPartial := cond $isTags "term-link/card-compact.html" "term-link/card.html" }}
+
+  {{ if site.Params.taxonomy.cardView }}
+    <section class="{{ $sectionClass }}">
+      {{ range .Data.Terms }}
+        {{ if not (in $hidden .Page.Title) }}
+          {{ partial $cardPartial . }}
+        {{ end }}
+      {{ end }}
+    </section>
+  {{ else }}
+
+    <section class="flex flex-wrap max-w-prose -mx-2 overflow-hidden">
+      {{ range .Data.Terms }}
+        {{ if not (in $hidden .Page.Title) }}
+          {{ partial "term-link/text.html" . }}
+        {{ end }}
+      {{ end }}
+    </section>
+  {{ end }}
+{{ end }}

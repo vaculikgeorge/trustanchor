@@ -1,0 +1,41 @@
+{{/*
+  Trust Anchor — local override of Blowfish's author.html.
+  Post-byline layout now matches the homepage author panel:
+    [photo] [AUTHOR / Name stacked] ........... [LI · GH · MS-Learn icons]
+    [bio paragraph spans full width below the head row]
+  Panel is clickable to /about/ via stretched link; icons stay
+  independently clickable thanks to z-index layering.
+*/}}
+{{ $disableImageOptimization := .Site.Params.disableImageOptimization | default false }}
+<div class="ta-post-author">
+  <a href="/about/" class="ta-stretched-link" aria-label="About {{ .Site.Params.Author.name }}"></a>
+  <div class="ta-post-author-head">
+    {{ $authorImage := resources.Get "img/foto.png" }}
+    {{ if $authorImage }}
+      {{ $final := $authorImage }}
+      {{ $squareImage := $authorImage }}
+      {{ if not $disableImageOptimization }}
+        {{ $shortSide := int (math.Min $authorImage.Width $authorImage.Height) }}
+        {{ $squareImage = $authorImage.Crop (printf "%dx%d" $shortSide $shortSide) }}
+        {{ $final = $squareImage.Fill (print "144x144 q" ($.Site.Params.Author.imagequality | default "96")) }}
+      {{ end }}
+      <img
+        class="ta-post-author-photo nozoom"
+        width="64"
+        height="64"
+        alt="{{ $.Site.Params.Author.name | default `Author` }}"
+        src="{{ $final.RelPermalink }}">
+    {{ end }}
+    <div class="ta-post-author-meta">
+      <div class="ta-author-label">{{ i18n "author.byline_title" | markdownify }}</div>
+      <div class="ta-post-author-name">{{ .Site.Params.Author.name | markdownify }}</div>
+    </div>
+    <div class="ta-post-author-links">
+      {{ partialCached "author-links.html" $ }}
+      {{ partial "ta-mslearn-link.html" $ }}
+    </div>
+  </div>
+  {{ with .Site.Params.Author.bio | markdownify }}
+    <p class="ta-post-author-bio">{{ . }}</p>
+  {{ end }}
+</div>

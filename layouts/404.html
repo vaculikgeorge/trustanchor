@@ -1,0 +1,18 @@
+{{ define "main" }}
+<section class="flex flex-col items-center justify-center my-24 text-center">
+  <h1 class="text-7xl font-extrabold text-neutral-800 dark:text-neutral-200">404</h1>
+  <h2 class="text-2xl mt-4 font-semibold text-neutral-700 dark:text-neutral-300">Page not found</h2>
+  <p class="my-6 max-w-xl mx-auto text-neutral-600 dark:text-neutral-400">
+    Pages here gate human access. This one doesn't have that scope —
+    you've stepped outside the perimeter.
+  </p>
+  <p class="max-w-xl mx-auto text-neutral-600 dark:text-neutral-400">
+    Try the
+    <a href="{{ "/" | relLangURL }}" class="text-primary-500 hover:underline">homepage</a>,
+    the
+    <a href="{{ "/categories/" | relLangURL }}" class="text-primary-500 hover:underline">categories index</a>,
+    or the
+    <a href="{{ "/about/" | relLangURL }}" class="text-primary-500 hover:underline">about page</a>.
+  </p>
+</section>
+{{ end }}

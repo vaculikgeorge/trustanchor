@@ -1,0 +1,24 @@
+{{/*
+  Trust Anchor — local override of Blowfish's author-links.html.
+  Removes the Tailwind hover:text-primary-700 classes; hover colour is
+  governed entirely by our CSS (ta-author-links a:hover / ta-post-author-links a:hover)
+  so both the homepage panel and post-byline panel behave identically.
+*/}}
+{{ with .Site.Params.Author.links }}
+  <div class="flex" style="gap:0.5rem;align-items:center">
+    {{ range $links := . }}
+      {{ range $name, $url := $links }}
+        {{ $isEmail := eq $name "email" }}
+        <a
+          class="{{ if $isEmail }}email-link{{ end }}"
+          href="{{ cond $isEmail "#" ($url | safeURL) }}"
+          {{ if eq $name "email" }}data-email="{{ $url | base64Encode }}"{{ end }}
+          target="_blank"
+          aria-label="{{ $name | title }}"
+          title="{{ $name | title }}"
+          rel="me noopener noreferrer"
+        ><span class="inline-block align-text-bottom">{{ partial "icon.html" $name }}</span></a>
+      {{ end }}
+    {{ end }}
+  </div>
+{{ end }}

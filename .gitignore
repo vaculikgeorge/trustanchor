@@ -1,0 +1,8 @@
+public/
+resources/
+.hugo_build.lock
+
+PRE-PUBLISH-CHECKLIST.md
+
+# Local-only orphan pages (CV, project references) — never published
+private/

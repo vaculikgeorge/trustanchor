@@ -1,0 +1,25 @@
+disabled = false
+locale = "en"
+label = "English"
+weight = 1
+title = "Trust Anchor"
+
+[params]
+  displayName = "EN"
+  isoCode = "en"
+  rtl = false
+  dateFormat = "2 January 2006"
+  description = "Identity-centric security and DevSecOps for Microsoft cloud — PIM, Conditional Access, Workload Identity Federation, and the no-secret pipelines that ship them."
+  copyright = "© 2026 George Vaculik"
+  logo = "img/logo.svg"
+
+[params.author]
+  name = "George Vaculik"
+  image = "img/avatar.svg"
+  imageQuality = 96
+  headline = "Identity-centric security & DevSecOps for Microsoft cloud"
+  bio = "Senior Microsoft cloud security architect. I work at the intersection of identity governance and the IaC supply chain that delivers it — PIM, Conditional Access, JIT, Workload Identity Federation, and no-secret pipelines across Entra and Azure."
+  links = [
+    { linkedin = "https://www.linkedin.com/in/vaculikgeorge" },
+    { github = "https://github.com/vaculikgeorge" },
+  ]

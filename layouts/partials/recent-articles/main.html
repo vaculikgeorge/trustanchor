@@ -1,0 +1,34 @@
+{{/*
+  Trust Anchor — local override of Blowfish's recent-articles/main.html.
+  Only change vs upstream: the "Show More" button uses the same .ta-learn-more
+  outlined-pill style as the homepage "Learn more" CTA (consistent hover with
+  filled primary on hover instead of border-going-transparent).
+*/}}
+{{ $recentArticles := 5 }}
+{{ $showMoreLinkDest := "/posts/" }}
+{{ if .Site.Params.homepage.showRecent | default false }}
+  {{ if index .Site.Params.homepage "showRecentItems" }}
+    {{ $recentArticles = .Site.Params.homepage.showRecentItems }}
+  {{ end }}
+  <h2 class="mt-8 text-2xl font-extrabold mb-10">{{ i18n "shortcode.recent_articles" | emojify }}</h2>
+
+  {{ if and .Site.Params.homepage.cardView (not .Site.Params.homepage.cardViewScreenWidth) | default false }}
+    {{ partial "recent-articles/cardview.html" . }}
+  {{ else if and .Site.Params.homepage.cardView .Site.Params.homepage.cardViewScreenWidth | default false }}
+    {{ partial "recent-articles/cardview-fullwidth.html" . }}
+  {{ else }}
+    {{ partial "recent-articles/list.html" . }}
+  {{ end }}
+
+  {{ if .Site.Params.homepage.showMoreLink | default false }}
+    {{ if index .Site.Params.homepage "showRecentItems" }}
+      {{ $showMoreLinkDest = .Site.Params.homepage.showMoreLinkDest }}
+    {{ end }}
+    <div class="mt-10 flex justify-center">
+      <a class="ta-learn-more" href="{{ $showMoreLinkDest | relLangURL }}">
+        {{ i18n "recent.show_more" | markdownify }}
+        <span class="ta-learn-more-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  {{ end }}
+{{ end }}

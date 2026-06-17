@@ -1,0 +1,29 @@
+{{/*
+  Trust Anchor — sharing-links override.
+  Adds a text label next to the share-network icon (icon-only was too cryptic).
+  Opens the share dialog in a fixed popup window (better UX than a plain new tab).
+  URL-encodes permalink and title via urlquery so special characters survive as
+  query parameters (spaces, colons, slashes, etc.).
+  Honors site param sharingLinks (currently ["linkedin"]).
+*/}}
+{{ with .Params.sharingLinks | default (.Site.Params.article.sharingLinks | default false) }}
+  {{ $links := hugo.Data.sharing }}
+  <section class="flex flex-row flex-wrap justify-start gap-2 pt-2 text-base print:hidden">
+    {{ range . }}
+      {{ $networkName := . }}
+      {{ with index $links . }}
+        <a
+          class="ta-learn-more"
+          target="_blank"
+          rel="noopener"
+          href="{{ printf .url ($.Permalink | urlquery) ($.Title | urlquery) | safeURL }}"
+          onclick="window.open(this.href,'share-window','width=700,height=600,scrollbars=yes,resizable=yes');return false;"
+          title="{{ i18n .title }}"
+          aria-label="{{ i18n .title }}">
+          <span class="ta-share-icon" aria-hidden="true">{{ partial "icon.html" .icon }}</span>
+          <span>Share on {{ humanize $networkName }}</span>
+        </a>
+      {{ end }}
+    {{ end }}
+  </section>
+{{ end }}

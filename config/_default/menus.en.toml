@@ -1,0 +1,27 @@
+# -- Main Menu --
+# Items in the site header.
+#
+# Note: taxonomy listing pages (categories, tags) use `url` rather than
+# `pageRef` because `pageRef` does not reliably resolve to taxonomy index
+# pages in Hugo + Blowfish. Posts and About are real pages and work with
+# `pageRef`.
+
+[[main]]
+  name = "Posts"
+  pageRef = "posts"
+  weight = 10
+
+[[main]]
+  name = "Categories"
+  url = "/categories/"
+  weight = 20
+
+[[main]]
+  name = "About me"
+  pageRef = "about"
+  weight = 30
+
+[[main]]
+  name = "Tags"
+  url = "/tags/"
+  weight = 40

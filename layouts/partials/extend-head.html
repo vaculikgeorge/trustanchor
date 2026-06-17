@@ -1,0 +1,1494 @@
+{{/*
+  Trust Anchor — custom head extension.
+  Resizes the header logo (~25% smaller than Blowfish default).
+  Softens light-mode background + code-block tones (dark mode untouched).
+  Cloudflare Web Analytics placeholder — uncomment and add token after signup.
+*/}}
+<style>
+  /* ── Base font scale ──────────────────────────────────────────────────────
+     Raises the root font-size from 16px (browser default) to 20px — the
+     same effect as pressing Ctrl+= once in most browsers. Because Blowfish /
+     Tailwind sizes everything in rem (container widths, padding, spacing,
+     headings, body text), every element scales by ×1.25 automatically:
+       max-w-7xl (80rem): 1280px → 1600px
+       lg:px-32   (8rem): 128px  → 160px each side
+       usable content column:    1024px → 1280px  (+25 %)  */
+  html {
+    font-size: 20px;
+  }
+
+  /* Dark mode — nav bar in a slightly deeper variant of the body's blue/slate
+     tone (Blowfish dark neutral has a blue cast — match it, don't go to flat black). */
+  html.dark .fixed.inset-x-0.z-100 {
+    background-color: #172033 !important;
+  }
+
+  /* Light mode — nav bar matches the brand band (slate-200) so the top
+     section reads as one cool-toned strip above the slate-100 body. */
+  html:not(.dark) .fixed.inset-x-0.z-100 {
+    background-color: #e2e8f0 !important;
+  }
+
+  /* Scroll-to-top button — match the nav bar colour in dark mode so it doesn't
+     blend into the body. */
+  html.dark #scroll-to-top a {
+    background-color: #172033 !important;
+  }
+  html:not(.dark) #scroll-to-top a {
+    background-color: #e2e8f0 !important;
+  }
+
+  /* Tags landing grid — explicit CSS grid because Tailwind's grid-cols-N classes
+     aren't all making it into the compiled bundle. */
+  .ta-tags-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  @media (min-width: 640px) {
+    .ta-tags-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (min-width: 768px) {
+    .ta-tags-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .ta-tags-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+
+  /* Same defense for the categories grid in case sm:/md: variants fail too. */
+  .ta-categories-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .ta-categories-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 768px) {
+    .ta-categories-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* Top-left logo — Blowfish renders it as inline <svg> inside <span class="logo">.
+     Target the SVG directly. ~35% smaller than the Blowfish default. */
+  span.logo svg,
+  .logo > svg {
+    height: 2.5rem !important;
+    width: 2.5rem !important;
+    max-height: 2.5rem !important;
+    max-width: 2.5rem !important;
+  }
+
+  /* Post author byline headshot — pinned size. */
+  .author img.rounded-full {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+    max-width: 3.5rem !important;
+    max-height: 3.5rem !important;
+    object-fit: cover !important;
+  }
+
+  /* ───── Home page only — scoped via html.ta-home (set synchronously in
+     the early <script> below so there's no flash of the default header). ───── */
+
+  /* Hide top-left Stargate + "Trust Anchor" wordmark initially — they fade in
+     after the reader scrolls past the brand band. The big logo+sign in the
+     band are the primary brand on first paint; the small ones in the nav
+     take over once the band scrolls out of view. */
+  html.ta-home .main-menu a[href="/"],
+  html.ta-home .main-menu a[href="/index.html"] {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  html.ta-home.ta-scrolled .main-menu a[href="/"],
+  html.ta-home.ta-scrolled .main-menu a[href="/index.html"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Globally tighten the Blowfish fixed-nav spacer (148px → 80px). Gives the
+     nav enough clearance without leaving a huge dead zone above the content. */
+  div.min-h-\[148px\] {
+    min-height: 80px !important;
+  }
+
+  /* Home page collapses it completely — the brand band sits flush against the
+     very top of the page; the fixed nav floats over the band's top portion. */
+  html.ta-home div.min-h-\[148px\] {
+    min-height: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Shared primary button hover — for the footer Subscribe submit and any
+     future buttons tagged with .ta-btn-primary. Logo blue + slightly darker
+     on hover, less-rounded corners. */
+  .ta-btn-primary {
+    transition: background-color 0.15s ease, transform 0.15s ease;
+  }
+  .ta-btn-primary:hover {
+    background-color: #106ebe !important;
+    transform: translateY(-1px);
+  }
+
+  /* Subscribe pill — absolutely centered in the nav on every page. */
+  /* Nav spreads to match the cert-to-cert width on the About page.
+     The cert-to-cert grid (.ta-about-3col) fills the full max-w-7xl (80rem)
+     box. The nav inner wrapper has lg:px-32 (8rem each side) which shrinks it
+     to 64rem — zero that out so the nav spans the same 80rem. The .main-menu
+     padding below provides the visible inset for the logo and toggle. */
+  @media (min-width: 1024px) {
+    .fixed.inset-x-0 > div {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  }
+
+  .main-menu {
+    position: relative;
+    /* 1rem on both sides — symmetric visible buffer at the nav edges now that
+       the outer lg:px-32 is cleared. Logo and toggle each sit ~20px inside the
+       cert-to-cert edge at 20px root font-size. */
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .ta-nav-subscribe {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    background-color: #0078D4;       /* same logo blue as everywhere */
+    color: #ffffff;
+    padding: 0.4rem 1.1rem;
+    border-radius: 0.5rem;           /* less rounded, matches footer button */
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  .ta-nav-subscribe:hover {
+    background-color: #106ebe;
+    transform: translate(-50%, calc(-50% - 1px));
+  }
+  /* 640–767 px (tablet): absolutely-centered pill still crowds the nav at
+     this width range — hide it here and show it inline at ≤639 px below. */
+  @media (min-width: 640px) and (max-width: 767px) {
+    .ta-nav-subscribe { display: none; }
+  }
+
+  /* ───── Home page (custom layout) ───── */
+
+  /* Brand mark — bumped 30% (was 5rem → now 6.5rem). */
+  img.ta-home-mark {
+    width: 6.5rem !important;
+    height: 6.5rem !important;
+    max-width: 6.5rem !important;
+    max-height: 6.5rem !important;
+    pointer-events: none !important;
+    cursor: default !important;
+    flex: 0 0 auto;
+  }
+
+  /* Brand band — edge-to-edge breakout using calc math on the negative
+     margins. Width is forced to 100vw; negative side margins absorb the
+     overflow so the band sits flush with the viewport edges regardless of
+     the parent container's padding. */
+  .ta-brand-band {
+    background-color: #172033;
+    width: 100vw;
+    margin-left: calc(-1 * (100vw - 100%) / 2);
+    margin-right: calc(-1 * (100vw - 100%) / 2);
+    padding-top: 3.75rem; /* just below the fixed nav (~56px) with a hair of breathing room */
+    padding-bottom: 1.5rem;
+  }
+  html:not(.dark) .ta-brand-band {
+    background-color: #e2e8f0;
+  }
+
+  /* Inner wrapper re-pads content to match the body container's padding
+     (matching Blowfish's body classes: px-6 sm:px-14 md:px-24 lg:px-32). */
+  .ta-brand-band-inner {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  @media (min-width: 640px) {
+    .ta-brand-band-inner { padding-left: 3.5rem; padding-right: 3.5rem; }
+  }
+  @media (min-width: 768px) {
+    .ta-brand-band-inner { padding-left: 6rem; padding-right: 6rem; }
+  }
+  @media (min-width: 1024px) {
+    /* max-w-7xl + auto margins + 1rem padding mirrors the nav .main-menu inset
+       so the big logo and "Two perimeters…" tagline align with the nav logo. */
+    .ta-brand-band-inner {
+      max-width: 80rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+
+  /* Brand body — pitch + CTA back on body bg, normal article width. */
+  .ta-brand-body {
+    padding-top: 1.5rem;
+    padding-bottom: 1.75rem;
+  }
+
+  /* "Learn more" CTA — right-aligned. Positive margin so the button sits
+     below the pitch text, never overlapping the last line. */
+  .ta-brand-cta {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .ta-learn-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1.1rem;
+    border-radius: 0.5rem;          /* matches Subscribe buttons */
+    border: 1.5px solid #0078D4;
+    color: #0078D4;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    background-color: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .ta-learn-more:hover {
+    background-color: #0078D4;
+    color: #ffffff;
+    transform: translateY(-1px);
+  }
+  .ta-learn-more-arrow {
+    transition: transform 0.15s ease;
+  }
+  /* Share button (inside .ta-learn-more) — icon next to text. */
+  .ta-share-icon {
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+  .ta-learn-more:hover .ta-learn-more-arrow {
+    transform: translateX(2px);
+  }
+  html.dark .ta-learn-more {
+    border-color: #4ca6e8;
+    color: #4ca6e8;
+  }
+  html.dark .ta-learn-more:hover {
+    background-color: #4ca6e8;
+    color: #0b1626;
+  }
+
+  /* Author row — cert left + panel center + cert right. */
+  .ta-author-row {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .ta-author-row .ta-panel-author {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 36rem;
+  }
+  /* Cert badges flanking the author panel on homepage.
+     10rem scales with html { font-size: 20px }: 160px@16px → 200px@20px */
+  .ta-home-cert {
+    flex: 0 0 auto;
+    width: 10rem;
+    justify-content: center;
+  }
+  @media (max-width: 767px) {
+    .ta-home-cert { display: none; }
+  }
+
+  /* Category row — four equal panels, collapse responsively. */
+  .ta-grid-4 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .ta-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .ta-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+
+  /* About page — 3-column responsive grid for project / skill panels. */
+  .ta-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .ta-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* About page 3-column grid — left cert sidebar, centre content, right cert sidebar.
+     Expands to match the homepage's max-w-7xl (80rem) container.
+     Below 1024px collapses: center first, then certs in 2-col grid below. */
+  .ta-about-3col {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .ta-about-3col {
+      /* rem columns scale with html { font-size: 20px }:
+         minmax(8.75rem, 10rem) = 140–160px@16px → 175–200px@20px */
+      grid-template-columns: minmax(8.75rem, 10rem) minmax(0, 1fr) minmax(8.75rem, 10rem);
+      gap: 2rem;
+      align-items: start;
+      width: min(calc(100vw - 4rem), 80rem);
+      margin-left: calc((100% - min(calc(100vw - 4rem), 80rem)) / 2);
+    }
+  }
+  .ta-about-side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+  @media (max-width: 1023px) {
+    .ta-about-side {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      order: 2;
+    }
+    .ta-about-center { order: 1; }
+  }
+  .ta-about-center { min-width: 0; }
+  .ta-about-title {
+    margin: 0 0 1rem 0;
+    font-size: 2.25rem;
+    line-height: 1.05;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+  html.dark .ta-about-title { color: #f5f5f5; }
+
+  /* Intro row — text on the left, portrait on the right (stacks on mobile,
+     photo on top). */
+  .ta-about-intro {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 0.5rem 0 1.75rem 0;
+    width: 100%;
+  }
+  @media (min-width: 768px) {
+    .ta-about-intro {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 2.25rem;
+    }
+  }
+  .ta-about-intro-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ta-about-intro-text p {
+    margin: 0 0 0.85rem 0;
+  }
+  .ta-about-intro-text p:last-child { margin-bottom: 0; }
+  .ta-about-portrait {
+    width: 10rem !important;  /* 200px@20px — scales with font-size */
+    height: 10rem !important;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    margin: 0 !important;
+    pointer-events: none !important;
+    cursor: default !important;
+  }
+  html.dark .ta-about-portrait {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+
+  /* About intro right — portrait stacked above social buttons. */
+  .ta-about-intro-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    flex: 0 0 auto;
+  }
+  .ta-about-social {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ta-about-social-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(100, 116, 139, 0.12);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .ta-about-social-btn svg { flex-shrink: 0; width: 18px; height: 18px; }
+  .ta-about-social-btn:hover {
+    background: #0078D4;
+    border-color: #0078D4;
+    color: #fff !important;
+  }
+  html:not(.dark) .ta-about-social-btn {
+    background: rgba(100, 116, 139, 0.08);
+    border-color: rgba(100, 116, 139, 0.25);
+    color: #475569;
+  }
+  html:not(.dark) .ta-about-social-btn:hover {
+    background: #0078D4;
+    border-color: #0078D4;
+    color: #fff !important;
+  }
+
+  /* Centre column content — remove the prose max-width so "What I work on"
+     and "What I write about" can span the full width of the centre column
+     (rather than being capped at the prose 65ch ≈ 700px default). */
+  .ta-about-content { max-width: none !important; }
+  .ta-about-content > *,
+  .ta-about-content > .ta-about-intro,
+  .ta-about-content > .ta-grid-3,
+  .ta-about-content > .ta-about-cta {
+    max-width: none !important;
+  }
+
+  /* "What I work on" header row — heading left, social buttons right. */
+  .ta-about-work-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .ta-about-work-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  html.dark .ta-about-work-header h2 { color: #f5f5f5; }
+
+  /* About panel internals — tighter heading, no trailing margin on last paragraph. */
+  .ta-about-panel-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: #0f172a;
+  }
+  html.dark .ta-about-panel-title { color: #f5f5f5; }
+  .ta-panel p:last-child { margin-bottom: 0; }
+
+  /* Cert badge — whole panel is clickable to the cert's MS Learn verify URL.
+     Vertical layout: image on top, code/name/year below. Image is the same
+     size for every cert (avoids the ratio-mismatch problem). */
+  .ta-cert-badge {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.4rem;
+    padding: 1.5rem 0.75rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    background-color: #f8fafc;
+    text-decoration: none !important;
+    color: inherit !important;
+    transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  html.dark .ta-cert-badge {
+    border-color: #2a3550;
+    background-color: #1a2336;
+  }
+  .ta-cert-badge:hover {
+    border-color: #0078D4;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px -3px rgba(0, 0, 0, 0.10);
+  }
+  .ta-cert-badge-img {
+    width: 6rem !important;    /* 96px at 16px → 120px at 20px — scales with font-size */
+    height: 6rem !important;
+    flex: 0 0 auto;
+    object-fit: contain;
+    margin: 0 !important;
+    pointer-events: none;
+  }
+  .ta-cert-code {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #0078D4;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+  }
+  html.dark .ta-cert-code { color: #4ca6e8; }
+  .ta-cert-name {
+    font-size: 0.78rem;
+    color: #334155;
+    line-height: 1.25;
+  }
+  html.dark .ta-cert-name { color: #cbd5e1; }
+  .ta-cert-year {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    margin-top: 0.1rem;
+  }
+  html.dark .ta-cert-year { color: #94a3b8; }
+
+  /* Expert-level certs (SC-100, MS-102) — gold accent + EXPERT tag. Same
+     image size as other certs (consistent badge ratio). */
+  .ta-cert-badge-expert {
+    border-color: #d4a017;
+    background: linear-gradient(180deg, #fffaeb 0%, #fdf6dc 100%);
+  }
+  html.dark .ta-cert-badge-expert {
+    border-color: #b8861a;
+    background: linear-gradient(180deg, #2a2410 0%, #1f1c0e 100%);
+  }
+  .ta-cert-badge-expert:hover {
+    border-color: #f0b020 !important;
+    box-shadow: 0 6px 12px -3px rgba(212, 160, 23, 0.25);
+  }
+  .ta-cert-badge-expert .ta-cert-code {
+    color: #b8861a;
+    font-size: 0.95rem;
+  }
+  html.dark .ta-cert-badge-expert .ta-cert-code { color: #f0c040; }
+
+  /* Tier tags — absolute-positioned corner labels. */
+  .ta-cert-tier {
+    position: absolute;
+    top: 0.45rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.25rem;
+    line-height: 1.4;
+  }
+  /* Green "Active" tag — top-left on every cert. */
+  .ta-cert-tier-active {
+    left: 0.45rem;
+    color: #15803d;
+    background-color: rgba(34, 197, 94, 0.15);
+  }
+  html.dark .ta-cert-tier-active {
+    color: #4ade80;
+    background-color: rgba(74, 222, 128, 0.15);
+  }
+  /* Gold "Expert" tag — top-right on SC-100 + MS-102. */
+  .ta-cert-tier-expert {
+    right: 0.45rem;
+    color: #b8861a;
+    background-color: rgba(212, 160, 23, 0.18);
+  }
+  html.dark .ta-cert-tier-expert {
+    color: #f0c040;
+    background-color: rgba(240, 192, 64, 0.18);
+  }
+  .ta-about-training {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  html.dark .ta-about-training { color: #94a3b8; }
+  .ta-cert-verify {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  /* About-me page CTA wrapper (e.g. "Find me on LinkedIn" button). */
+  .ta-about-cta {
+    margin: 1.25rem 0 0 0;
+  }
+
+  /* Post-bottom taxonomies — categories + tags as chip rows. */
+  .ta-post-taxonomies {
+    margin: 2rem 0 1.5rem 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid #cbd5e1;
+  }
+  html.dark .ta-post-taxonomies { border-top-color: #2a3550; }
+  .ta-post-tax-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  .ta-post-tax-row:last-child { margin-bottom: 0; }
+  .ta-post-tax-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    flex: 0 0 auto;
+    min-width: 5rem;
+  }
+  html.dark .ta-post-tax-label { color: #94a3b8; }
+  .ta-post-tax-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .ta-post-tax-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid #cbd5e1;
+    background-color: transparent;
+    font-size: 0.78rem;
+    color: #475569;
+    text-decoration: none !important;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  }
+  html.dark .ta-post-tax-chip {
+    border-color: #2a3550;
+    color: #cbd5e1;
+  }
+  .ta-post-tax-chip:hover {
+    border-color: #0078D4;
+    color: #0078D4;
+  }
+  .ta-post-tax-chip-cat {
+    border-color: #0078D4;
+    color: #0078D4;
+    font-weight: 600;
+  }
+  html.dark .ta-post-tax-chip-cat {
+    border-color: #4ca6e8;
+    color: #4ca6e8;
+  }
+  .ta-post-tax-chip-cat:hover {
+    background-color: rgba(0, 120, 212, 0.08);
+  }
+
+  /* Home page sits flush with the nav — no extra top padding. */
+  html.ta-home article.ta-home {
+    padding-top: 0;
+  }
+
+  /* ───── Unified "elevated card" style ─────
+     Used across: homepage Category and Author panels (.ta-panel),
+     post-list cards (.article-link--card), category cards (.term-link--card),
+     and tag cards (.term-link--compact). One look everywhere. */
+  .ta-panel,
+  .ta-card,
+  .article-link--card {
+    background-color: #f8fafc;          /* slate-50 — lighter than slate-100 body */
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07),
+                0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  html.dark .ta-panel,
+  html.dark .ta-card,
+  html.dark .article-link--card {
+    background-color: #243044;          /* one step lighter than #1e293b body */
+    border-color: #2a3550 !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.30),
+                0 2px 4px -2px rgba(0, 0, 0, 0.18);
+  }
+
+  /* .ta-panel keeps its 1.5rem padding (cards have their own internal padding). */
+  .ta-panel { padding: 1.5rem; }
+
+  /* Hover lift — only the clickable variants. */
+  .ta-panel-category:hover,
+  .ta-card:hover,
+  .article-link--card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.10),
+                0 4px 6px -4px rgba(0, 0, 0, 0.06);
+  }
+  html.dark .ta-panel-category:hover,
+  html.dark .ta-card:hover,
+  html.dark .article-link--card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.40),
+                0 4px 6px -4px rgba(0, 0, 0, 0.25);
+    border-color: #3a4865 !important;
+  }
+
+  /* Brand block inner layout (used by .ta-brand-open). */
+  .ta-brand-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .ta-brand-text { min-width: 0; }
+  .ta-brand-preface {
+    margin: 0 0 0.15rem 0;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: #737373;
+    letter-spacing: -0.005em;
+  }
+  html.dark .ta-brand-preface { color: #94a3b8; }
+  .ta-brand-title {
+    font-size: 3rem;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: #1a1a1a;
+  }
+  html.dark .ta-brand-title { color: #f5f5f5; }
+  .ta-brand-pitch { max-width: none; }
+  .ta-brand-pitch p { margin: 0.6rem 0; }
+  .ta-brand-pitch p:first-child { margin-top: 0; }
+  .ta-brand-pitch p:last-child { margin-bottom: 0; }
+
+  /* Author panel head — 3-column row: [foto] [name] [icons]. */
+  .ta-panel-author .ta-author-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .ta-panel-author .ta-author-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ta-panel-author .ta-author-links {
+    margin-left: auto;
+    margin-top: 0;
+    flex: 0 0 auto;
+  }
+  /* Stretched link covers the whole panel so clicking anywhere goes to /about/.
+     Inner LI/GH icons get z-index above it so they stay independently clickable. */
+  .ta-panel-author {
+    position: relative;
+    cursor: pointer;
+  }
+  .ta-stretched-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent;
+    border-radius: inherit;
+  }
+  .ta-panel-author .ta-author-links a,
+  .ta-panel-author .ta-author-links-inline a {
+    position: relative;
+    z-index: 2;
+  }
+  /* Same hover lift as other clickable cards. */
+  .ta-panel-author:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.10),
+                0 4px 6px -4px rgba(0, 0, 0, 0.06);
+  }
+  html.dark .ta-panel-author:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.40),
+                0 4px 6px -4px rgba(0, 0, 0, 0.25);
+    border-color: #3a4865 !important;
+  }
+  .ta-panel-author img.ta-author-photo {
+    width: 4rem !important;
+    height: 4rem !important;
+    border-radius: 9999px;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+  .ta-author-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #737373;
+  }
+  html.dark .ta-author-label { color: #a3a3a3; }
+  .ta-author-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #1a1a1a;
+  }
+  html.dark .ta-author-name { color: #f5f5f5; }
+  .ta-author-bio {
+    font-size: 0.85rem;
+    line-height: 1.55;
+    margin: 0 0 0.75rem 0;
+    color: #404040;
+  }
+  html.dark .ta-author-bio { color: #d4d4d4; }
+  .ta-author-links {
+    font-size: 1.2rem;
+    margin-top: 0.35rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  /* Homepage + post author icon links — colour + hover governed here,
+     not via Tailwind hover: classes (see author-links.html override). */
+  .ta-author-links a,
+  .ta-author-links-inline a,
+  .ta-author-name-row-links a {
+    display: inline-flex;
+    align-items: center;
+    color: #737373;
+    transition: color 0.15s ease;
+  }
+  html.dark .ta-author-links a,
+  html.dark .ta-author-links-inline a,
+  html.dark .ta-author-name-row-links a { color: #a3a3a3; }
+  .ta-author-links a:hover,
+  .ta-author-links-inline a:hover,
+  .ta-author-name-row-links a:hover { color: #0078D4 !important; }
+  html.dark .ta-author-links a:hover,
+  html.dark .ta-author-links-inline a:hover,
+  html.dark .ta-author-name-row-links a:hover { color: #4ca6e8 !important; }
+
+  /* Post header meta row — date/words/reading-time on the left, Share pill on
+     the right, on the same row. Wraps on mobile. */
+  .ta-post-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .ta-post-meta {
+    min-width: 0;
+  }
+  .ta-post-meta-share {
+    flex: 0 0 auto;
+  }
+  .ta-post-meta-share section { padding-top: 0 !important; }
+
+  /* Post-byline + homepage author row — name on the left, LI/GH/MS-Learn icons
+     inline on the right (same row as the name). */
+  .ta-author-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .ta-author-links-inline,
+  .ta-author-name-row-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .ta-author-links-inline a,
+  .ta-author-name-row-links a {
+    display: inline-flex;
+    align-items: center;
+    color: #525252;
+    transition: color 0.15s ease;
+  }
+  html.dark .ta-author-links-inline a,
+  html.dark .ta-author-name-row-links a { color: #a3a3a3; }
+  .ta-author-links-inline a:hover,
+  .ta-author-name-row-links a:hover { color: #0078D4; }
+
+  /* Microsoft Learn link icon — colour matches Blowfish's LI/GH icons
+     (text-neutral-400 / text-neutral-500), hover goes primary-blue. */
+  .ta-mslearn-link {
+    display: inline-flex;
+    align-items: center;
+    color: #a3a3a3;                /* tailwind neutral-400 */
+    transition: color 0.15s ease;
+  }
+  html.dark .ta-mslearn-link {
+    color: #737373;                /* tailwind neutral-500 */
+  }
+  .ta-mslearn-link:hover {
+    color: #0078D4;
+  }
+  html.dark .ta-mslearn-link:hover {
+    color: #4ca6e8;
+  }
+  .ta-mslearn-link svg {
+    width: 1em;
+    height: 1em;
+  }
+
+  /* Post author byline — now matches the homepage panel pattern:
+       [photo] [AUTHOR / Name stacked] ... [LI · GH · MS-Learn far right]
+       [bio paragraph spans full width below the head row]
+     Clickable to /about/ via stretched link; icons keep z-index 2. */
+  .ta-post-author {
+    position: relative;
+    cursor: pointer;
+    width: 100%;
+    max-width: none;
+    margin-bottom: 2rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    background-color: #f8fafc;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07),
+                0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  html.dark .ta-post-author {
+    border-color: #2a3550;
+    background-color: #243044;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.30),
+                0 2px 4px -2px rgba(0, 0, 0, 0.18);
+  }
+  .ta-post-author:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08),
+                0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  }
+  html.dark .ta-post-author:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.40),
+                0 4px 6px -4px rgba(0, 0, 0, 0.25);
+  }
+  .ta-post-author-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .ta-post-author-photo {
+    width: 4rem !important;
+    height: 4rem !important;
+    border-radius: 9999px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    margin: 0 !important;
+  }
+  .ta-post-author-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ta-post-author-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #1a1a1a;
+    line-height: 1.3;
+    margin-top: 0.1rem;
+  }
+  html.dark .ta-post-author-name { color: #f5f5f5; }
+  .ta-post-author-links {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-size: 1.2rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .ta-post-author-links a {
+    color: #525252;
+    transition: color 0.15s ease;
+    position: relative;
+    z-index: 2;
+  }
+  html.dark .ta-post-author-links a { color: #a3a3a3; }
+  .ta-post-author-links a:hover { color: #0078D4 !important; }
+  html.dark .ta-post-author-links a:hover { color: #4ca6e8 !important; }
+  .ta-post-author-bio {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: #404040;
+  }
+  html.dark .ta-post-author-bio { color: #d4d4d4; }
+
+  /* Section heading shared by "The four categories" and "Recent". */
+  .ta-section-heading {
+    margin: 2rem 0 0.75rem 0;
+  }
+  .ta-section-heading h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin: 0;
+  }
+  html.dark .ta-section-heading h2 { color: #f5f5f5; }
+
+  /* Category panel — clickable variant. Hover lift is inherited from
+     the unified .ta-card / .ta-panel rules above. */
+  .ta-panel-category {
+    display: block;
+    text-decoration: none;
+  }
+  .ta-panel-category:hover {
+    border-color: #0078D4 !important;
+  }
+  .ta-cat-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem 0;
+    color: #1a1a1a;
+  }
+  html.dark .ta-cat-title { color: #f5f5f5; }
+  .ta-cat-desc {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0;
+    color: #525252;
+  }
+  html.dark .ta-cat-desc { color: #a3a3a3; }
+
+  /* Homepage profile avatar — explicit hard cap (independent of Tailwind h-36/w-36),
+     and not clickable (kills the zoom-to-open-SVG behaviour). */
+  article header img.rounded-full {
+    width: 9rem !important;
+    height: 9rem !important;
+    max-width: 9rem !important;
+    max-height: 9rem !important;
+    object-fit: cover !important;
+    pointer-events: none !important;
+    cursor: default !important;
+  }
+
+  /* Light mode palette — cool slate, complements the Azure-blue (#0078D4) core.
+     Body is slate-50 / 100 territory; nav + brand band sit one step deeper;
+     code blocks one more step down. Mirrors the dark-mode hierarchy. */
+  html:not(.dark) body {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  html:not(.dark) .prose,
+  html:not(.dark) main {
+    color: #1e293b;
+  }
+
+  html:not(.dark) pre,
+  html:not(.dark) code {
+    background-color: #e2e8f0 !important;
+  }
+
+  html:not(.dark) pre {
+    border: 1px solid #cbd5e1;
+  }
+
+  /* Headings stay readable */
+  html:not(.dark) h1,
+  html:not(.dark) h2,
+  html:not(.dark) h3 {
+    color: #0f172a;
+  }
+
+  /* Post content column — fills the flex row (sits beside TOC when present). */
+  .ta-post-content-col {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  /* Post single pages — widen content beyond the default 65ch prose cap.
+     50rem scales with html font-size: at 20px it resolves to 1000px
+     (same character-count per line as 800px at 16px — browser-zoom behaviour). */
+  #single_header {
+    max-width: 50rem;
+  }
+  .article-content {
+    max-width: 50rem;
+  }
+  .ta-post-footer {
+    max-width: 50rem;
+  }
+
+  /* SC-100 source PNG has extra transparent padding around the badge graphic —
+     the 768×768 image is only 21 KB, meaning the actual badge occupies roughly
+     60-65% of the canvas. Scale it up so it visually matches the other certs
+     (AZ-500, SC-200, SC-300 all fill their canvas more tightly). */
+  .ta-cert-badge-img[alt="SC-100 badge"] {
+    transform: scale(1.3);
+    transform-origin: center;
+  }
+
+  /* ── Container width ─────────────────────────────────────────────────────
+     No override needed. html { font-size: 20px } above makes Blowfish's
+     built-in max-w-7xl (80rem) resolve to 1600px naturally — 25% wider than
+     the 1280px it produced at the default 16px. */
+
+  /* ── Mobile responsiveness ───────────────────────────────────────────────
+     Blowfish/Tailwind handles most breakpoints. This block patches the custom
+     ta-* components that have no built-in mobile rules.
+
+     BRAND BAND  — the flex row [130px mark + 3rem title] overflows a 375px
+     phone (~315px available), triggering horizontal scroll. That poisons the
+     100vw negative-margin math and breaks the entire brand band on mobile.
+     Fix: stack vertically, shrink mark, shrink title.
+
+     AUTHOR HEAD — [photo][name meta][icons] flex row. On narrow screens the
+     name overflows and covers the icon links. Fix: wrap so icons go on their
+     own row below the name, indented to align with the text column. */
+
+  @media (max-width: 639px) {
+    /* ── Root font-size ──────────────────────────────────────────────────────
+       Drop from 20px back to the browser default (16px) on phones.
+       25 % smaller than desktop — every rem-based element shrinks with it:
+       nav wordmark fits, brand band stops overflowing, hamburger stays visible,
+       spacing is standard mobile density. Desktop still gets the 20px scale. */
+    html {
+      font-size: 16px;
+    }
+
+    /* ── Nav Subscribe pill → floating action button ────────────────────────
+       Removing the pill from the nav flow entirely fixes "Trust Anchor"
+       truncation — the nav has room again.
+       Also fixes the "slides to top-left on tap" bug: the hover rule below
+       uses translate(-50%,-50%), which was written for position:absolute.
+       On mobile, a tap triggers :hover; with position:static that translated
+       the pill off-screen. position:fixed + transform:none !important both
+       neutralise the issue. The pill stays visible as the user scrolls. */
+    .ta-nav-subscribe {
+      display: inline-flex !important; /* override the 640–767 px hide rule */
+      position: fixed !important;
+      bottom: 1.25rem;
+      left: 1.25rem;      /* left side — scroll-to-top arrow owns the right */
+      right: auto;
+      top: auto;
+      transform: none !important;
+      z-index: 200;
+      font-size: 0.85rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 2rem;             /* full pill shape — standard FAB look */
+      box-shadow: 0 4px 16px rgba(0, 120, 212, 0.40);
+      margin: 0;
+    }
+    .ta-nav-subscribe:hover {
+      transform: translateY(-2px) !important; /* lift only — no lateral shift */
+    }
+
+    /* ── Brand band ──────────────────────────────────────────────────────────
+       Stack logo mark above text, shrink both to fit the narrower column. */
+    .ta-brand-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    img.ta-home-mark {
+      width: 3.5rem !important;
+      height: 3.5rem !important;
+      max-width: 3.5rem !important;
+      max-height: 3.5rem !important;
+    }
+    .ta-brand-title {
+      font-size: 2rem;
+    }
+    .ta-brand-preface {
+      font-size: 0.85rem;
+    }
+
+    /* "Learn more" CTA — reset the desktop -2rem pull-up that overlaps text. */
+    .ta-brand-cta {
+      margin-top: 0.5rem;
+    }
+
+    /* ── Homepage author row ─────────────────────────────────────────────────
+       Desktop: [cert] [author panel] [cert] — three columns.
+       Mobile:  [author panel — full width]
+                [cert 1] [cert 2]  — two equal columns below.
+       Both certs are still visible; they just stack below the panel
+       instead of flanking it. */
+    .ta-author-row {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .ta-author-row .ta-panel-author {
+      order: 1;
+      flex: 0 0 100%;
+      max-width: 100%;
+    }
+    .ta-home-cert {
+      order: 2;
+      flex: 0 0 calc(50% - 0.375rem);
+      width: calc(50% - 0.375rem);
+    }
+    /* Scale cert images down inside the narrower 2-col slots. */
+    .ta-home-cert .ta-cert-badge-img {
+      width: 4rem !important;
+      height: 4rem !important;
+    }
+
+    /* ── Author head (homepage panel + post byline) ─────────────────────────
+       Wrap so icon links drop to their own row below the name, instead of
+       being obscured by the name overflowing to the right. */
+    .ta-panel-author .ta-author-head {
+      flex-wrap: wrap;
+      row-gap: 0.5rem;
+    }
+    .ta-panel-author .ta-author-links {
+      order: 3;
+      flex: 0 0 100%;
+      margin-left: 0;
+    }
+    .ta-post-author-head {
+      flex-wrap: wrap;
+      row-gap: 0.5rem;
+    }
+    .ta-post-author-links {
+      order: 3;
+      flex: 0 0 100%;
+      margin-left: 0;
+    }
+  }
+
+  /* ── About page — mobile cert repositioning ──────────────────────────────
+     Desktop (≥1024px): certs live in .ta-about-side sidebar columns;
+       .ta-about-mobile-certs is hidden.
+     Mobile/tablet (<1024px): sidebar columns are hidden; the inline
+       .ta-about-mobile-certs block in about.md shows the same 5 certs in a
+       responsive grid positioned between "What I work on" and "What I write
+       about" in the natural content flow. */
+  .ta-about-mobile-certs {
+    display: none;
+  }
+  /* Sidebar cert columns are hidden at every width below desktop — the
+     portrait-flanking badges (phones) or .ta-about-mobile-certs (tablets)
+     replace them at their respective breakpoints. */
+  @media (max-width: 1023px) {
+    .ta-about-side {
+      display: none !important;
+    }
+  }
+  /* Mobile cert grid — tablets only (640–1023 px).
+     On phones (≤639 px) the portrait-flanking layout in
+     .ta-about-photo-row handles badge display. */
+  @media (min-width: 640px) and (max-width: 1023px) {
+    .ta-about-mobile-certs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin: 1.5rem 0;
+    }
+  }
+
+  /* ── About page — portrait flanked by cert badges on phones ─────────────
+     On phones (≤639px) the .ta-about-intro-right wraps the portrait in a
+     flex row with two small cert columns on each side:
+       [SC-100][MS-102] | photo | [AZ-500][SC-200]
+     The cert columns (.ta-about-photo-certs-left/right) are hidden on
+     tablet and desktop — sidebar or .ta-about-mobile-certs covers those. */
+  .ta-about-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .ta-about-photo-certs-left,
+  .ta-about-photo-certs-right {
+    display: none;
+  }
+  @media (max-width: 639px) {
+    /* Stretch the intro-right column to the full container width so the
+       photo-row's space-between can push cert columns all the way to the
+       page edges (instead of fitting tightly around the portrait). */
+    .ta-about-intro-right {
+      width: 100%;
+      align-self: stretch;
+    }
+    /* space-between: left cert column → left edge, right cert column → right
+       edge, portrait centred automatically in the remaining space. */
+    .ta-about-photo-row {
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ta-about-photo-certs-left,
+    .ta-about-photo-certs-right {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 4.5rem;
+    }
+    /* Portrait sits between the two cert columns; no fixed size override needed
+       on wider phones — let it breathe at its natural 10rem.
+       On very narrow screens (< 360px) the three items together would be
+       10rem + 2×4.5rem = 19rem = 304px which fits a 360px viewport fine. */
+    .ta-about-portrait {
+      flex-shrink: 0;
+    }
+  }
+  /* Compact cert badge: image + exam code only, no tier tags or year line. */
+  .ta-about-photo-cert {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.35rem 0.2rem 0.3rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.375rem;
+    background-color: #f8fafc;
+    text-decoration: none !important;
+    color: inherit !important;
+    gap: 0.2rem;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  html.dark .ta-about-photo-cert {
+    border-color: #2a3550;
+    background-color: #1a2336;
+  }
+  .ta-about-photo-cert.ta-cert-badge-expert {
+    border-color: #d4a017;
+    background: linear-gradient(180deg, #fffaeb 0%, #fdf6dc 100%);
+  }
+  html.dark .ta-about-photo-cert.ta-cert-badge-expert {
+    border-color: #b8861a;
+    background: linear-gradient(180deg, #2a2410 0%, #1f1c0e 100%);
+  }
+  .ta-about-photo-cert:hover {
+    border-color: #0078D4;
+    transform: translateY(-1px);
+  }
+  .ta-about-photo-cert.ta-cert-badge-expert:hover {
+    border-color: #f0b020 !important;
+  }
+  .ta-about-photo-cert-img {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    flex: 0 0 auto;
+    object-fit: contain;
+    margin: 0 !important;
+    pointer-events: none;
+  }
+  .ta-about-photo-cert-code {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    color: #0078D4;
+  }
+  html.dark .ta-about-photo-cert-code { color: #4ca6e8; }
+  .ta-about-photo-cert.ta-cert-badge-expert .ta-about-photo-cert-code { color: #b8861a; }
+  html.dark .ta-about-photo-cert.ta-cert-badge-expert .ta-about-photo-cert-code { color: #f0c040; }
+
+  /* Subscribe form flash — pulse-ring fired when #subscribe is targeted
+     (nav Subscribe button, direct URL, or page-load with fragment). */
+  @keyframes ta-subscribe-pulse {
+    0%   { box-shadow: 0 0 0 0    rgba(0, 120, 212, 0.55); }
+    60%  { box-shadow: 0 0 0 6px  rgba(0, 120, 212, 0.12); }
+    100% { box-shadow: 0 0 0 0    rgba(0, 120, 212, 0);    }
+  }
+  .ta-subscribe-flash {
+    animation: ta-subscribe-pulse 0.65s ease-out 2;
+    border-radius: 0.375rem;
+  }
+
+  /* ── Blockquote pull-quote size ───────────────────────────────────────────
+     Stand-alone pull-quotes (homepage intro, article epigraphs) should read
+     visually larger than body prose. Bumped from default 1rem to 1.3rem. */
+  .prose blockquote p {
+    font-size: 1.3rem;
+    line-height: 1.5;
+  }
+
+  /* ── Chroma YAML code block — enhanced dark-mode colors ──────────────────
+     Default Blowfish Chroma palette is muted; boost saturation for the
+     run: everything-as-a-code block used as a display element.
+     .nt  = Name.Tag      → YAML keys      (sky blue)
+     .s   = Literal.String → bare values    (soft green)
+     .l   = Literal        → unquoted text  (soft green)
+     Scoped to html.dark so the light-mode palette is not touched.           */
+  html.dark .chroma .nt                 { color: #38BDF8; } /* keys: sky-400   */
+  html.dark .chroma .s,
+  html.dark .chroma .s1,
+  html.dark .chroma .s2,
+  html.dark .chroma .sx,
+  html.dark .chroma .l                  { color: #86EFAC; } /* values: green-300 */
+  html.dark .chroma                     { background-color: #0D1B2A; } /* deeper navy */
+</style>
+
+{{/* Cloudflare Web Analytics — privacy-friendly, no cookies, GDPR-clean. */}}
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+  data-cf-beacon='{"token": "983d8ef5a8574c4a86eef97ed71feb99"}'></script>
+
+{{/*
+  Nav extras.
+  - Every page: inject a centered Subscribe pill into the nav.
+  - Home page only: tag <html> with .ta-home synchronously so the default
+    logo + wordmark are hidden on first paint; bind a scroll listener that
+    fades them back in once the brand band scrolls out of view.
+*/}}
+<script>
+  // ── Home-page setup (synchronous + DOM-ready) ─────────────────────────────
+  (function () {
+    var path = window.location.pathname.replace(/\/+$/, '');
+    if (path !== '' && path !== '/index.html') return;
+
+    // Synchronous: hide default logo+wordmark before first paint.
+    document.documentElement.classList.add('ta-home');
+
+    // Reveal the corner logo + wordmark once past the brand band.
+    function bindScroll() {
+      var threshold = 30;
+      var ticking = false;
+      function update() {
+        if (window.scrollY > threshold) {
+          document.documentElement.classList.add('ta-scrolled');
+        } else {
+          document.documentElement.classList.remove('ta-scrolled');
+        }
+        ticking = false;
+      }
+      function onScroll() {
+        if (!ticking) {
+          window.requestAnimationFrame(update);
+          ticking = true;
+        }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      update();
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindScroll);
+    } else {
+      bindScroll();
+    }
+  })();
+
+  // ── Subscribe pill injection — every page ────────────────────────────────
+  (function () {
+    function injectSubscribe() {
+      var menu = document.querySelector('.main-menu');
+      if (!menu || menu.querySelector('.ta-nav-subscribe')) return;
+      var rightGroup = menu.querySelector('.ms-auto') || menu.lastElementChild;
+      var subscribe = document.createElement('a');
+      subscribe.className = 'ta-nav-subscribe';
+      subscribe.href = '#subscribe';
+      subscribe.textContent = 'Subscribe';
+      subscribe.setAttribute('aria-label', 'Subscribe by email');
+      if (rightGroup) {
+        menu.insertBefore(subscribe, rightGroup);
+      } else {
+        menu.appendChild(subscribe);
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', injectSubscribe);
+    } else {
+      injectSubscribe();
+    }
+  })();
+</script>

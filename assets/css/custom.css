@@ -1,0 +1,314 @@
+/* =========================================================================
+   Custom overrides — trustanchor.pro
+   Auto-loaded by Blowfish via layouts/partials/head.html:123-125.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   Table of Contents — visual hierarchy by level
+   -------------------------------------------------------------------------
+   Hugo renders nested <ul><li><a/></li></ul> inside #TableOfContents with no
+   per-level styling. The rules below give each depth a distinct shape:
+     level 1 — bold, base size, primary-accent left border
+     level 2 — normal weight, slightly smaller, dotted left border + caret
+     level 3 — smaller, dimmer, light dotted border + dot marker
+   ------------------------------------------------------------------------- */
+
+#TableOfContents {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Wipe default list-style at every depth — we re-add custom markers below. */
+#TableOfContents ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+#TableOfContents li {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- Level 1 (top — sections like "TL;DR", "The problem", etc.) ---- */
+#TableOfContents > ul > li {
+  margin-top: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 3px solid rgb(var(--color-primary-400) / 0.55);
+}
+
+#TableOfContents > ul > li:first-child {
+  margin-top: 0;
+}
+
+#TableOfContents > ul > li > a {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: rgb(var(--color-neutral-800));
+  display: inline-block;
+  padding: 0.1rem 0;
+}
+
+.dark #TableOfContents > ul > li > a {
+  color: rgb(var(--color-neutral-100));
+}
+
+/* ---- Level 2 (subsections like "Entra directory roles via Graph") ---- */
+#TableOfContents > ul > li > ul {
+  margin-left: 0.25rem;
+  margin-top: 0.15rem;
+  padding-left: 0.85rem;
+  border-left: 1px dotted rgb(var(--color-primary-300) / 0.6);
+}
+
+#TableOfContents > ul > li > ul > li {
+  position: relative;
+  margin-top: 0.2rem;
+}
+
+#TableOfContents > ul > li > ul > li::before {
+  content: "›";
+  position: absolute;
+  left: -0.95rem;
+  top: 0.05rem;
+  color: rgb(var(--color-primary-400) / 0.8);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+#TableOfContents > ul > li > ul > li > a {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: rgb(var(--color-neutral-700));
+}
+
+.dark #TableOfContents > ul > li > ul > li > a {
+  color: rgb(var(--color-neutral-300));
+}
+
+/* ---- Level 3 (sub-subsections like MSSP "Three auth contexts" etc.) ---- */
+#TableOfContents > ul > li > ul > li > ul {
+  margin-left: 0.25rem;
+  margin-top: 0.1rem;
+  padding-left: 0.75rem;
+  border-left: 1px dashed rgb(var(--color-neutral-400) / 0.45);
+}
+
+#TableOfContents > ul > li > ul > li > ul > li {
+  position: relative;
+  margin-top: 0.1rem;
+}
+
+#TableOfContents > ul > li > ul > li > ul > li::before {
+  content: "·";
+  position: absolute;
+  left: -0.65rem;
+  top: -0.05rem;
+  color: rgb(var(--color-neutral-500) / 0.7);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#TableOfContents > ul > li > ul > li > ul > li > a {
+  font-size: 0.8125rem;
+  color: rgb(var(--color-neutral-600));
+}
+
+.dark #TableOfContents > ul > li > ul > li > ul > li > a {
+  color: rgb(var(--color-neutral-400));
+}
+
+/* ---- Hover + active states (active is set by smartTOC JS when enabled) ---- */
+#TableOfContents a:hover {
+  color: rgb(var(--color-primary-500));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#TableOfContents a.active {
+  color: rgb(var(--color-primary-500));
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------------------
+   Mermaid click-to-zoom
+   -------------------------------------------------------------------------
+   Mermaid (Blowfish shortcode) renders inline <svg> inside
+   <pre class="not-prose mermaid">. Clicking the diagram opens a fullscreen
+   overlay with the SVG scaled to viewport. Click backdrop, click the × in
+   the corner, or press Esc to close. CSS-only zoom — no pan inside the
+   overlay (small enough diagrams fit; larger ones can scroll the overlay).
+   JS lives in layouts/partials/extend-footer.html.
+   ------------------------------------------------------------------------- */
+
+pre.mermaid {
+  cursor: zoom-in;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+pre.mermaid:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px -4px rgb(var(--color-primary-400) / 0.25);
+}
+
+.mermaid-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.93);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem 2rem;
+  cursor: zoom-out;
+  overflow: auto;
+  animation: mermaid-zoom-fade 0.18s ease-out;
+}
+
+@keyframes mermaid-zoom-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.mermaid-zoom-inner {
+  width: calc(100vw - 4rem);
+  height: calc(100vh - 6rem);
+  max-width: calc(100vw - 4rem);
+  max-height: calc(100vh - 6rem);
+  background: rgb(var(--color-neutral-100));
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+.mermaid-zoom-inner:active {
+  cursor: grabbing;
+}
+
+.dark .mermaid-zoom-inner {
+  background: rgb(var(--color-neutral-800));
+}
+
+.mermaid-zoom-inner svg {
+  display: block;
+  /* No max/min — let svg-pan-zoom drive the transform. Width/height
+     are stamped onto the SVG element by the JS before init. */
+}
+
+/* -------------------------------------------------------------------------
+   svg-pan-zoom control icons (+, -, reset)
+   -------------------------------------------------------------------------
+   svg-pan-zoom injects its own <style id="svg-pan-zoom-controls-styles">
+   block INSIDE the SVG at runtime. That runtime-injected style wins over
+   non-!important external CSS because it's defined later. We override
+   with !important to take back control, and target `fill` + `fill-opacity`
+   (the properties the library actually sets), NOT `opacity`.
+   ------------------------------------------------------------------------- */
+
+/* Wrapping <g> — children inherit its fill. Default lib: fill black 33%. */
+.svg-pan-zoom-control {
+  cursor: pointer !important;
+  fill: rgb(var(--color-neutral-100)) !important;
+  fill-opacity: 1 !important;
+}
+
+/* Button background <rect>. Default lib: fill white 80%. */
+.svg-pan-zoom-control-background {
+  fill: rgb(var(--color-neutral-800)) !important;
+  fill-opacity: 0.92 !important;
+}
+
+/* Icon glyph paths (+, -, reset). Set fill explicitly rather than relying
+   on inheritance from .svg-pan-zoom-control (covers cases where the lib
+   adds its own attribute on the path). */
+.svg-pan-zoom-control-element {
+  fill: rgb(var(--color-neutral-100)) !important;
+  fill-opacity: 1 !important;
+}
+
+/* Hover state — primary-blue button, white icon. */
+.svg-pan-zoom-control:hover .svg-pan-zoom-control-background {
+  fill: rgb(var(--color-primary-500)) !important;
+  fill-opacity: 1 !important;
+}
+
+.svg-pan-zoom-control:hover .svg-pan-zoom-control-element,
+.svg-pan-zoom-control:hover {
+  fill: rgb(var(--color-neutral)) !important;
+  fill-opacity: 1 !important;
+}
+
+/* The instruction hint at the bottom of the overlay (under the SVG). */
+.mermaid-zoom-overlay-hint {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem;
+  color: rgb(var(--color-neutral-300));
+  background: rgb(var(--color-neutral-800) / 0.85);
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10000;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.mermaid-zoom-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: rgb(var(--color-neutral-700) / 0.92);
+  color: rgb(var(--color-neutral-100));
+  border: none;
+  border-radius: 9999px;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, transform 0.15s;
+  z-index: 10000;
+}
+
+.mermaid-zoom-close:hover {
+  background: rgb(var(--color-primary-500));
+  transform: scale(1.05);
+}
+
+.mermaid-zoom-hint {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.75rem;
+  font-size: 0.7rem;
+  color: rgb(var(--color-neutral-500));
+  background: rgb(var(--color-neutral-100) / 0.85);
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.dark .mermaid-zoom-hint {
+  color: rgb(var(--color-neutral-400));
+  background: rgb(var(--color-neutral-800) / 0.85);
+}
+
+pre.mermaid:hover .mermaid-zoom-hint {
+  opacity: 1;
+}

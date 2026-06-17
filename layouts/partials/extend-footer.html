@@ -1,0 +1,267 @@
+{{/*
+  Trust Anchor — site-wide subscribe block in the footer.
+  Buttondown embed — list: buttondown.com/trustanchor
+  Submits via fetch() for inline confirmation. If Buttondown blocks the
+  cross-origin request (CORS), falls back to opening the subscribe page
+  in a new tab instead of redirecting away from the current post.
+*/}}
+<div id="subscribe" class="mt-6 mb-4 mx-auto max-w-md text-center" data-bd-wrapper>
+  <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+    Subscribe by email
+  </div>
+  <form
+    action="https://buttondown.email/api/emails/embed-subscribe/trustanchor"
+    method="post"
+    class="flex flex-row gap-2 items-stretch justify-center">
+    <input
+      type="email"
+      name="email"
+      required
+      placeholder="you@example.com"
+      class="flex-1 min-w-0 px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+    <button
+      type="submit"
+      style="background-color:#0078D4;color:#ffffff;border-radius:0.375rem;border:none;cursor:pointer;padding:0.5rem 1rem;font-size:0.875rem;font-weight:600;white-space:nowrap;">
+      Subscribe
+    </button>
+  </form>
+  <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+    Prefer a reader? <a href="{{ "/index.xml" | relLangURL }}" class="hover:underline">RSS feed</a>.
+  </div>
+</div>
+<script>
+(function () {
+  function initBd(form) {
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var wrapper = form.closest('[data-bd-wrapper]') || form.parentElement;
+      var btn    = form.querySelector('button[type="submit"]');
+      var email  = form.querySelector('input[name="email"]').value;
+      btn.disabled    = true;
+      btn.textContent = 'Subscribing…';
+      try {
+        var resp = await fetch(form.action, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body:    'email=' + encodeURIComponent(email)
+        });
+        if (resp.ok) {
+          wrapper.innerHTML =
+            '<p style="font-size:0.875rem;color:#6b7280;padding:0.5rem 0;">' +
+            'Check your inbox to confirm — one click and you’re in.' +
+            '</p>';
+        } else {
+          /* HTTP error (e.g. already subscribed, invalid email) */
+          var msg = 'Something went wrong — <a href="https://buttondown.com/trustanchor" ' +
+                    'target="_blank" rel="noopener" style="text-decoration:underline;">subscribe here</a>.';
+          try {
+            var data = await resp.json();
+            if (data && (data.detail || data.email)) {
+              msg = data.detail || data.email;
+            }
+          } catch (_) {}
+          var errEl = document.createElement('p');
+          errEl.style.cssText = 'font-size:0.875rem;color:#ef4444;margin-top:0.25rem;';
+          errEl.innerHTML = msg;
+          form.after(errEl);
+          btn.disabled    = false;
+          btn.textContent = 'Subscribe';
+        }
+      } catch (_) {
+        /* CORS / network error — open Buttondown in a new tab, don't redirect */
+        window.open('https://buttondown.com/trustanchor', '_blank', 'noopener,noreferrer');
+        btn.disabled    = false;
+        btn.textContent = 'Subscribe';
+      }
+    });
+  }
+  document.querySelectorAll('form[action*="embed-subscribe"]').forEach(initBd);
+
+  /* Flash the email input + subscribe button when #subscribe is targeted —
+     works whether scrolling happens or not (short pages, direct URL, etc.) */
+  function flashSubscribeFields() {
+    var wrapper = document.getElementById('subscribe');
+    if (!wrapper) return;
+    wrapper.querySelectorAll('input[type="email"], button[type="submit"]').forEach(function (el) {
+      el.classList.remove('ta-subscribe-flash');
+      void el.offsetWidth; /* force reflow so the animation restarts cleanly */
+      el.classList.add('ta-subscribe-flash');
+    });
+  }
+  function onHashChange() {
+    if (window.location.hash === '#subscribe') {
+      setTimeout(flashSubscribeFields, 300); /* brief delay for scroll to settle */
+    }
+  }
+  window.addEventListener('hashchange', onHashChange);
+  /* Also handle page load with #subscribe already in the URL */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onHashChange);
+  } else {
+    onHashChange();
+  }
+}());
+</script>
+
+{{/*
+  Mermaid click-to-zoom — fullscreen overlay with real pan/zoom via
+  svg-pan-zoom (lazy-loaded from jsDelivr on first click). Drag to pan,
+  scroll to zoom, pinch on touch, +/- buttons via svg-pan-zoom's built-in
+  controls. CSS lives in assets/css/custom.css (Mermaid click-to-zoom).
+*/}}
+<script>
+(function () {
+  var OVERLAY_ID = 'mermaid-zoom-overlay';
+  var SVG_PAN_ZOOM_URL = 'https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.2/dist/svg-pan-zoom.min.js';
+  /* TODO before publish: add SRI hash + crossorigin=anonymous for sub-resource integrity. */
+
+  var svgPanZoomPromise = null;
+  function loadSvgPanZoom() {
+    if (window.svgPanZoom) return Promise.resolve();
+    if (svgPanZoomPromise) return svgPanZoomPromise;
+    svgPanZoomPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = SVG_PAN_ZOOM_URL;
+      s.async = true;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('svg-pan-zoom load failed')); };
+      document.head.appendChild(s);
+    });
+    return svgPanZoomPromise;
+  }
+
+  function closeZoom() {
+    var overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+    if (overlay._panZoom) {
+      try { overlay._panZoom.destroy(); } catch (_) {}
+    }
+    overlay.remove();
+    document.body.style.overflow = '';
+  }
+
+  function openZoom(svg) {
+    closeZoom();
+    var overlay = document.createElement('div');
+    overlay.id = OVERLAY_ID;
+    overlay.className = 'mermaid-zoom-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', 'Diagram zoomed view');
+
+    var inner = document.createElement('div');
+    inner.className = 'mermaid-zoom-inner';
+
+    var cloned = svg.cloneNode(true);
+    if (!cloned.getAttribute('preserveAspectRatio')) {
+      cloned.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    }
+    inner.appendChild(cloned);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'mermaid-zoom-close';
+    closeBtn.setAttribute('aria-label', 'Close diagram zoom');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      closeZoom();
+    });
+
+    var hint = document.createElement('div');
+    hint.className = 'mermaid-zoom-overlay-hint';
+    hint.innerHTML = 'drag to pan &middot; scroll to zoom &middot; double-click to zoom in &middot; esc to close';
+
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(inner);
+    overlay.appendChild(hint);
+    /* Close on direct backdrop click only — not on clicks inside the
+       inner container (those drag/pan via svg-pan-zoom). */
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeZoom();
+    });
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    /* svg-pan-zoom requires the SVG to have explicit pixel width/height
+       (not 100% or auto). Compute the container's box and stamp those
+       sizes onto the SVG before initialising the library. */
+    loadSvgPanZoom().then(function () {
+      var rect = inner.getBoundingClientRect();
+      cloned.setAttribute('width', rect.width);
+      cloned.setAttribute('height', rect.height);
+      cloned.style.maxWidth = 'none';
+      cloned.style.maxHeight = 'none';
+      cloned.style.width = rect.width + 'px';
+      cloned.style.height = rect.height + 'px';
+
+      try {
+        overlay._panZoom = window.svgPanZoom(cloned, {
+          zoomEnabled: true,
+          panEnabled: true,
+          controlIconsEnabled: true,   /* renders +/- /reset buttons */
+          fit: true,
+          center: true,
+          minZoom: 0.5,
+          maxZoom: 20,
+          zoomScaleSensitivity: 0.3,
+          mouseWheelZoomEnabled: true,
+          dblClickZoomEnabled: true,
+          contain: false
+        });
+      } catch (err) {
+        console.error('[mermaid-zoom] svg-pan-zoom init failed:', err);
+        /* Fallback to plain fit-to-viewport */
+        cloned.setAttribute('width', '100%');
+        cloned.setAttribute('height', '100%');
+        cloned.style.width = '100%';
+        cloned.style.height = '100%';
+      }
+    }).catch(function (err) {
+      console.error('[mermaid-zoom] svg-pan-zoom load failed; falling back to fit-to-viewport:', err);
+      /* Fallback: no library, just show the SVG fit to viewport. */
+      cloned.setAttribute('width', '100%');
+      cloned.setAttribute('height', '100%');
+      cloned.style.width = '100%';
+      cloned.style.height = '100%';
+    });
+  }
+
+  /* Event delegation: handler attaches once, fires for any current or
+     future <pre class="mermaid"> that picks up a rendered <svg>. */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.mermaid-zoom-overlay')) return;
+    var pre = e.target.closest('pre.mermaid');
+    if (!pre) return;
+    var svg = pre.querySelector('svg');
+    if (!svg) return; /* mermaid hasn't finished rendering yet */
+    e.preventDefault();
+    openZoom(svg);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeZoom();
+  });
+
+  /* Drop a small "click to zoom" hint inside each mermaid block once
+     the SVG is rendered. Polled briefly because mermaid.js init is async. */
+  function attachHints() {
+    document.querySelectorAll('pre.mermaid').forEach(function (pre) {
+      if (pre.dataset.zoomHinted) return;
+      if (!pre.querySelector('svg')) return;
+      pre.dataset.zoomHinted = '1';
+      pre.style.position = pre.style.position || 'relative';
+      var hint = document.createElement('span');
+      hint.className = 'mermaid-zoom-hint';
+      hint.textContent = 'click to zoom';
+      pre.appendChild(hint);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(attachHints, 300); });
+  } else {
+    setTimeout(attachHints, 300);
+  }
+  /* Re-check once more in case mermaid takes longer (deferred bundle, slow CPU). */
+  setTimeout(attachHints, 1500);
+}());
+</script>

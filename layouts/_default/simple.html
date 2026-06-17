@@ -1,0 +1,21 @@
+{{/*
+  Trust Anchor — local override of Blowfish's simple.html.
+  Only change vs upstream: the sharing-links partial is omitted from the
+  footer. Sharing buttons belong on posts (single.html), not on the
+  About / Subscribe / other simple pages.
+*/}}
+{{ define "main" }}
+  <article class="max-w-full">
+    <header>
+      {{ if .Params.showBreadcrumbs | default (.Site.Params.article.showBreadcrumbs | default false) }}
+        {{ partial "breadcrumbs.html" . }}
+      {{ end }}
+      <h1 class="mt-0 text-4xl font-extrabold text-neutral-900 dark:text-neutral">
+        {{ .Title | emojify }}
+      </h1>
+    </header>
+    <section class="max-w-full mt-6 prose dark:prose-invert">
+      {{ .Content }}
+    </section>
+  </article>
+{{ end }}

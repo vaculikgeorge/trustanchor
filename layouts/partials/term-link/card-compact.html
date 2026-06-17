@@ -1,0 +1,26 @@
+{{/*
+  Trust Anchor — compact term card for tag-style taxonomies.
+  Smaller padding, title-only (no description), count badge on the right.
+  Used by terms.html when the taxonomy is "tags".
+*/}}
+<div class="min-w-full">
+  <div class="ta-card term-link--compact overflow-hidden relative h-full flex items-center px-3 py-2">
+    <a
+      {{ with .Page.Params.externalUrl }}
+        href="{{ . }}" target="_blank" rel="external"
+      {{ else }}
+        href="{{ .Page.RelPermalink }}"
+      {{ end }}
+      class="not-prose before:absolute before:inset-0 decoration-primary-500 text-sm font-semibold text-neutral-800 dark:text-neutral hover:underline hover:underline-offset-2 truncate">
+      {{ .Page.Title | emojify }}
+    </a>
+    {{ if site.Params.taxonomy.showTermCount | default true }}
+      <span class="ms-auto ps-2 z-10">
+        <span
+          class="rounded-md border border-primary-400 bg-neutral/80 px-1.5 py-[1px] text-xs font-normal text-primary-700 dark:border-primary-600 dark:bg-neutral-800/80 dark:text-primary-400">
+          {{ .Count }}
+        </span>
+      </span>
+    {{ end }}
+  </div>
+</div>

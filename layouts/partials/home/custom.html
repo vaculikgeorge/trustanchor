@@ -1,0 +1,129 @@
+{{/*
+  Trust Anchor — custom homepage.
+  Brand block is full-width and borderless (open). Author and category blocks
+  remain bordered panels (cells).
+    Row 1   Brand + thesis pitch — open, spans the full content width
+    Row 2   Author panel (cell, narrower)
+    Row 3   Four category panels (cells)
+    Row 4   Recent posts (Blowfish partial)
+*/}}
+
+{{ $cats := slice
+  (dict "slug" "identity-privileged-access" "label" "Identity & Privileged Access")
+  (dict "slug" "secure-delivery"            "label" "Secure Delivery")
+  (dict "slug" "security-ops"               "label" "Security Operations")
+  (dict "slug" "lz-architecture"            "label" "Landing Zone Architecture")
+}}
+
+<article class="ta-home flex flex-col">
+
+  {{/* ── Row 1a: brand band — extends the nav visually, full viewport width.
+       Outer .ta-brand-band breaks out of container; inner .ta-brand-band-inner
+       re-constrains content to the article width. ── */}}
+  <section class="ta-brand-band">
+    <div class="ta-brand-band-inner">
+      <div class="ta-brand-head">
+        {{ $mark := resources.Get "img/avatar.svg" }}
+        {{ with $mark }}
+          <img class="ta-home-mark" src="{{ .RelPermalink }}" alt="Trust Anchor" width="104" height="104">
+        {{ end }}
+        <div class="ta-brand-text">
+          <p class="ta-brand-preface">Two perimeters, one&hellip;</p>
+          <h1 class="ta-brand-title">Trust Anchor</h1>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {{/* ── Row 1b: pitch body — back on body bg, normal article width ── */}}
+  <section class="ta-brand-body">
+    {{ with .Content }}
+      <div class="ta-brand-pitch prose dark:prose-invert">
+        {{ . }}
+      </div>
+    {{ end }}
+    <div class="ta-brand-cta">
+      <a class="ta-learn-more" href="/posts/trust-anchor-thesis/">
+        Learn more
+        <span class="ta-learn-more-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  </section>
+
+  {{/* ── Row 2: cert left + author panel + cert right ── */}}
+  <section class="ta-author-row">
+
+    <a class="ta-cert-badge ta-cert-badge-expert ta-home-cert"
+       href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/cybersecurity-architect-expert?tab=credentials-tab"
+       target="_blank" rel="noopener"
+       title="Verify SC-100 on Microsoft Learn">
+      <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+      <span class="ta-cert-tier ta-cert-tier-expert">Expert</span>
+      <img src="/img/certs/sc-100.png" alt="SC-100 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+      <span class="ta-cert-code">SC-100</span>
+      <span class="ta-cert-name">Cybersecurity Architect</span>
+      <span class="ta-cert-year">Earned 2025</span>
+    </a>
+
+    <aside class="ta-panel ta-panel-author">
+      <a href="/about/" class="ta-stretched-link" aria-label="About {{ .Site.Params.Author.name }}"></a>
+      <div class="ta-author-head">
+        {{ $foto := resources.Get "img/foto.png" }}
+        {{ with $foto }}
+          <img class="ta-author-photo" src="{{ .RelPermalink }}" alt="{{ $.Site.Params.Author.name }}" width="64" height="64">
+        {{ end }}
+        <div class="ta-author-meta">
+          <div class="ta-author-label">AUTHOR</div>
+          <div class="ta-author-name">{{ .Site.Params.Author.name }}</div>
+        </div>
+        <div class="ta-author-links">
+          {{ partialCached "author-links.html" . }}
+          {{ partial "ta-mslearn-link.html" . }}
+        </div>
+      </div>
+      {{ with .Site.Params.Author.bio }}
+        <p class="ta-author-bio">{{ . | markdownify }}</p>
+      {{ end }}
+    </aside>
+
+    <a class="ta-cert-badge ta-cert-badge-expert ta-home-cert"
+       href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/m365-enterprise-administrator?tab=credentials-tab"
+       target="_blank" rel="noopener"
+       title="Verify MS-102 on Microsoft Learn">
+      <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+      <span class="ta-cert-tier ta-cert-tier-expert">Expert</span>
+      <img src="/img/certs/ms-102.png" alt="MS-102 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+      <span class="ta-cert-code">MS-102</span>
+      <span class="ta-cert-name">M365 Administrator</span>
+      <span class="ta-cert-year">Earned 2024</span>
+    </a>
+
+  </section>
+
+  {{/* ── Row 3: four category panels (cells) ── */}}
+  <section class="ta-section-heading">
+    <h2>The four categories</h2>
+  </section>
+  <section class="ta-grid-4 w-full">
+    {{ range $cats }}
+      {{ $page := site.GetPage (printf "/categories/%s/" .slug) }}
+      <a class="ta-panel ta-panel-category" href="{{ printf "/categories/%s/" .slug }}">
+        <h3 class="ta-cat-title">{{ .label }}</h3>
+        {{ with $page }}
+          {{ $desc := "" }}
+          {{ with .Description }}{{ $desc = . }}{{ end }}
+          {{ if not $desc }}{{ with .Params.description }}{{ $desc = . }}{{ end }}{{ end }}
+          {{ with $desc }}
+            <p class="ta-cat-desc">{{ . }}</p>
+          {{ end }}
+        {{ end }}
+      </a>
+    {{ end }}
+  </section>
+
+  {{/* ── Row 4: Recent posts ── */}}
+  <section class="ta-home-recent w-full mt-6">
+    {{ partial "recent-articles/main.html" . }}
+  </section>
+
+</article>

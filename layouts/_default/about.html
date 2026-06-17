@@ -1,0 +1,84 @@
+{{/*
+  Trust Anchor — custom About page layout.
+  Three-column grid:
+    LEFT  — expert-level certifications (SC-100, MS-102)
+    CENTER — page H1 + intro + projects + writing + CTA (from .Content)
+    RIGHT — associate-level certifications (AZ-500, SC-200, SC-300)
+  Cert badges are whole-panel clickable to each cert's MS Learn verify URL.
+  Images have .nozoom so medium-zoom doesn't intercept the link click.
+*/}}
+{{ define "main" }}
+  <article class="ta-about-3col">
+
+    {{/* ── LEFT sidebar: Expert certs ── */}}
+    <aside class="ta-about-side ta-about-side-left">
+      <a class="ta-cert-badge ta-cert-badge-expert"
+         href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/cybersecurity-architect-expert?tab=credentials-tab"
+         target="_blank" rel="noopener"
+         title="Verify SC-100 on Microsoft Learn">
+        <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+        <span class="ta-cert-tier ta-cert-tier-expert">Expert</span>
+        <img src="/img/certs/sc-100.png" alt="SC-100 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+        <span class="ta-cert-code">SC-100</span>
+        <span class="ta-cert-name">Cybersecurity Architect</span>
+        <span class="ta-cert-year">Earned 2025</span>
+      </a>
+      <a class="ta-cert-badge ta-cert-badge-expert"
+         href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/m365-enterprise-administrator?tab=credentials-tab"
+         target="_blank" rel="noopener"
+         title="Verify MS-102 on Microsoft Learn">
+        <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+        <span class="ta-cert-tier ta-cert-tier-expert">Expert</span>
+        <img src="/img/certs/ms-102.png" alt="MS-102 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+        <span class="ta-cert-code">MS-102</span>
+        <span class="ta-cert-name">M365 Administrator</span>
+        <span class="ta-cert-year">Earned 2024</span>
+      </a>
+    </aside>
+
+    {{/* ── CENTER: H1 + page content ── */}}
+    <main class="ta-about-center">
+      <header>
+        <h1 class="ta-about-title">{{ .Title | emojify }}</h1>
+      </header>
+      <section class="prose dark:prose-invert ta-about-content">
+        {{ .Content }}
+      </section>
+    </main>
+
+    {{/* ── RIGHT sidebar: Associate certs ── */}}
+    <aside class="ta-about-side ta-about-side-right">
+      <a class="ta-cert-badge"
+         href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/azure-security-engineer?tab=credentials-tab"
+         target="_blank" rel="noopener"
+         title="Verify AZ-500 on Microsoft Learn">
+        <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+        <img src="/img/certs/az-500.png" alt="AZ-500 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+        <span class="ta-cert-code">AZ-500</span>
+        <span class="ta-cert-name">Azure Security Engineer</span>
+        <span class="ta-cert-year">Earned 2026</span>
+      </a>
+      <a class="ta-cert-badge"
+         href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/security-operations-analyst?tab=credentials-tab"
+         target="_blank" rel="noopener"
+         title="Verify SC-200 on Microsoft Learn">
+        <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+        <img src="/img/certs/sc-200.png" alt="SC-200 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+        <span class="ta-cert-code">SC-200</span>
+        <span class="ta-cert-name">Security Operations Analyst</span>
+        <span class="ta-cert-year">Earned 2025</span>
+      </a>
+      <a class="ta-cert-badge"
+         href="https://learn.microsoft.com/en-us/users/vaculikgeorge/credentials/certification/identity-and-access-administrator?tab=credentials-tab"
+         target="_blank" rel="noopener"
+         title="Verify SC-300 on Microsoft Learn">
+        <span class="ta-cert-tier ta-cert-tier-active">Active</span>
+        <img src="/img/certs/sc-300.webp" alt="SC-300 badge" class="ta-cert-badge-img nozoom" loading="lazy">
+        <span class="ta-cert-code">SC-300</span>
+        <span class="ta-cert-name">Identity &amp; Access Administrator</span>
+        <span class="ta-cert-year">Earned 2023</span>
+      </a>
+    </aside>
+
+  </article>
+{{ end }}
