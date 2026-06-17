@@ -75,7 +75,7 @@ layout = 'about'
   </div>
   <div class="ta-panel">
     <h3 class="ta-about-panel-title">Platform Architecture &amp; Cloud Operations</h3>
-    <p>MSSP-grade sovereign multi-customer Microsoft tenant + Azure Landing Zones deployed via ADO CI/CD. Hybrid M365 tenant migrations from shared multi-org to sovereign per-org tenants. Azure Arc unified control plane PoCs for on-premises workloads. Global cybersecurity policy delivery across international corporate groups.</p>
+    <p>Enterprise-grade sovereign multi-customer Microsoft tenant + Azure Landing Zones deployed via ADO CI/CD. Hybrid M365 tenant migrations from shared multi-org to sovereign per-org tenants. Azure Arc unified control plane PoCs for on-premises workloads. Global cybersecurity policy delivery across international corporate groups.</p>
   </div>
 </div>
 

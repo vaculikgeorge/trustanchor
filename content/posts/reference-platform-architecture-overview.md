@@ -1,21 +1,33 @@
 +++
-title = 'MSSP platform — the high-level scheme'
+title = 'The reference platform — the high-level scheme'
 date = '2026-06-05T11:00:00+02:00'
 draft = true
-tags = ['mssp', 'architecture', 'platform', 'identity-governance', 'azure-landing-zones', 'm365-tenant-config']
+tags = ['architecture', 'platform', 'multi-tenant', 'identity-governance', 'azure-landing-zones', 'm365-tenant-config']
 categories = ['Architecture']
-summary = 'A reference MSSP platform — a multi-tenant, multi-customer, regulated-cloud delivery vehicle for Microsoft Entra + Azure + M365 governance. This post is the high-level map — one Mermaid diagram with ~32 components stacked in five layers (Delivery / Substrate / Identity / Security operations / Assurance) and the load-bearing dependencies between them. Every other post on this blog deep-dives one node; this one is the territory each of them sits on.'
+summary = 'The reference platform — a multi-tenant, multi-customer, regulated-cloud delivery vehicle for Microsoft Entra + Azure + M365 governance. This post is the high-level map — one Mermaid diagram with ~32 components stacked in five layers (Delivery / Substrate / Identity / Security operations / Assurance) and the load-bearing dependencies between them. Every other post on this blog deep-dives one node; this one is the territory each of them sits on.'
 +++
 
 > The reference platform is one diagram. Every post on this blog deep-dives one node.
 
 ## TL;DR
 
-The reference platform behind these posts is an MSSP-class delivery vehicle for Microsoft cloud governance — Entra, Azure, M365, Defender, Sentinel, ADO pipelines, Terraform delivery, policy-as-code, observability — designed to onboard multiple regulated customers into a shared substrate without losing per-customer isolation. It builds on Microsoft's Azure Landing Zone (ALZ) and Cloud Adoption Framework (CAF) reference architectures and extends them with the multi-tenant separation, supply-chain isolation, and detection-as-code patterns that an MSSP context demands.
+The reference platform behind these posts is a multi-tenant delivery vehicle for Microsoft cloud governance — Entra, Azure, M365, Defender, Sentinel, ADO pipelines, Terraform delivery, policy-as-code, observability — designed to onboard multiple regulated customers into a shared substrate without losing per-customer isolation. It builds on Microsoft's Azure Landing Zone (ALZ) and Cloud Adoption Framework (CAF) reference architectures and extends them with the multi-tenant separation, supply-chain isolation, and detection-as-code patterns that a multi-customer platform demands.
 
 This post is the **map**. The diagram below has ~32 components stacked into five layers — Delivery (everything-as-code that builds the platform) / Azure substrate (what exists in customer tenants) / Identity & Access (governance over who can act on the substrate) / Security operations (observability + response over the first three) / Assurance (validation that the first four meet declared standards). Every other post on this blog covers one slice — I-1 (PIM at scale) is a deep-dive into the PIM node; I-2 (JIT ADO access) drills into the auth-context binding between PIM and CA; S-1 (no-PAT agents) walks the Delivery-layer node for the self-hosted ADO agents; and so on. Read this post first, then jump to whichever slice-post matches what you're working on; this one stays useful as a "where am I" reference whenever a slice-post references a component from another layer.
 
 The post is intentionally **sanitised and principle-level**. No customer-specific data, no internal management-group names, no role-list specifics. Those land in the slice-posts. This post is the architectural pattern, not the deployed instance.
+
+## What "the reference platform" means
+
+Across this blog, **the reference platform** is a single, named platform that every post uses as a consistent worked example — a multi-tenant, multi-customer Microsoft cloud governance platform for regulated environments. It is a composite drawn from real delivery, with every identifying detail deliberately generalized:
+
+- **Customers** are illustrative (Contoso, Fabrikam), never real ones.
+- **Identifiers** — authentication-context labels, Conditional Access policy ranges, group / management-group / pipeline / script names — are described by *purpose*, not by any production naming scheme; where a concrete value would appear, it is a placeholder you substitute with your own.
+- **Numbers** — counts, durations, scale ceilings — are representative, not any one tenant's configuration.
+
+What is real is the *architecture and the reasoning*: the layering, the dependencies, the trade-offs. The reference platform exists so those patterns can be shown concretely without exposing any single organization's deployment. Read "the reference platform does X" as "this is how the pattern lands in practice," not "here is a production system you can fingerprint."
+
+The principles are universal; the implementations are Microsoft; the reference platform is the worked example that ties them together.
 
 ## The high-level scheme
 
@@ -284,7 +296,7 @@ flowchart TB
 
 Conditional Access is the gate every privileged operation passes through, but the framework is what makes it scale. Per-persona ranges — CA-GLOBAL, CA-ADMIN, CA-INTERNAL, CA-WORKLOAD, CA-GSA, CA-AGENT (the new AI-agent identity primitive), CA-GUEST, CA-BREAKGLASS — cover every sign-in surface the reference platform has to govern. The guest range is templated: a set of policies cloned per customer with the named location and authentication strength substituted per customer.
 
-This worked example is distilled from real multi-customer MSSP delivery, generalized here rather than any single customer's deployment.
+This worked example is distilled from real multi-customer delivery in regulated Microsoft cloud environments, generalized here rather than any single customer's deployment.
 
 The three authentication contexts — Protected Actions for sensitive admin operations, internal-user PIM activation, and guest-side step-up (used for both guest lifecycle actions and guest PIM activation) — each trigger a **triple-gate**: a device control (block non-compliant or non-managed devices), a network control (block off-trusted-network — GSA where available, named locations where not), and a credential control (require a specific authentication strength). Three policies per context, evaluated as a block-wins-on-conflict, auth-strength-overrides-MFA, shortest-sign-in-frequency-wins set of rules.
 
@@ -403,7 +415,7 @@ Terraform delivery is split into three domains. Identity owns Entra objects, RBA
 
 Workload-identity federation replaces the SP-secret pattern entirely on the deployment side. The Terraform provider block names the UAMI client_id and tenant_id and a federated token URL; the runtime exchanges the agent's OIDC token for an ARM access token. Same model as Section 6, applied at the Terraform-provider layer.
 
-Azure Verified Modules — Microsoft's `terraform-azurerm-*` registry of resource modules — are the building blocks. Custom local modules wrap AVMs where the reference platform needs MSSP-specific composition (e.g., the per-customer hub assembly). Variable substitution pulls per-customer values from the deployment configuration template: the customer index drives per-customer subnetting and policy ranges via a customer-index-derived formula, with a fixed arithmetic capacity ceiling enforced by the formula's arithmetic.
+Azure Verified Modules — Microsoft's `terraform-azurerm-*` registry of resource modules — are the building blocks. Custom local modules wrap AVMs where the reference platform needs custom composition (e.g., the per-customer hub assembly). Variable substitution pulls per-customer values from the deployment configuration template: the customer index drives per-customer subnetting and policy ranges via a customer-index-derived formula, with a fixed arithmetic capacity ceiling enforced by the formula's arithmetic.
 
 *Covered in depth in [S-2 (forthcoming)](/posts/three-domain-terraform-wif/), [S-12 (forthcoming)](/posts/cross-tenant-wif-assessment/).*
 
@@ -476,7 +488,7 @@ UTCM is preview at the time of writing and not yet covering every M365 surface t
 
 What UTCM doesn't yet cover: portal-only settings (idle session timeout, group creation controls, Copilot data-access scope), Teams meeting/messaging policies (partial support), audit log search permissions (no automation — manual role assignment), and self-service purchases (limited automation via `MSCommerce` PowerShell). Each of these is on the gap list for slice-posts to deep-dive.
 
-*Covered in depth in [S-9 (forthcoming)](/posts/utcm-concept-and-primitives/), [S-10 (forthcoming)](/posts/utcm-drift-detection-mssp-scale/), [S-11 (forthcoming)](/posts/utcm-vs-m365dsc-vs-epac/).*
+*Covered in depth in [S-9 (forthcoming)](/posts/utcm-concept-and-primitives/), [S-10 (forthcoming)](/posts/utcm-drift-detection-at-scale/), [S-11 (forthcoming)](/posts/utcm-vs-m365dsc-vs-epac/).*
 
 ### 11. Defender XDR Unified RBAC
 
@@ -519,7 +531,7 @@ Watchlists hold reference data the rules need at query time — the canonical ex
 
 Workspace Manager is what makes the multi-customer SOC pattern work without log-visibility bleed. Central Sentinel acts as the manager parent and pushes content — analytics rules, hunting queries, workbooks, playbooks — one-way down to per-customer member workspaces. Customer logs stay in the per-customer workspace; SOC operators query across them via Defender XDR multi-tenant management. The Data Lake (Tier 3) holds long-tail logs in cheaper-storage tiers, queryable on-demand with retention up to twelve years for compliance evidence.
 
-*Covered in depth in [O-1 (forthcoming)](/posts/sentinel-hunting-pim-activations/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization-mssp/), [O-10 (forthcoming)](/posts/workspace-manager-sentinel-per-customer/).*
+*Covered in depth in [O-1 (forthcoming)](/posts/sentinel-hunting-pim-activations/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization/), [O-10 (forthcoming)](/posts/workspace-manager-sentinel-per-customer/).*
 
 ### 13. Defender for Cloud
 
@@ -566,7 +578,7 @@ The Management Group hierarchy is the organisational substrate that every other 
 
 The fourth top-level branch is Confidential Isolated MG — a separate MG (not a subtree of Platform or Landing Zones) for L3 sovereign workloads that demand confidential compute, encryption in use, and a separate policy lineage. It's its own tier in the hierarchy, not a customer-LZ sub-branch.
 
-For customer-owned tenants (where the customer keeps their tenant root but delegates platform management to the MSSP), Azure Lighthouse provides cross-tenant resource management. Lighthouse projects an MSSP-side identity (group + delegation manifest) into the customer tenant; the MSSP operator can operate the customer's resources without per-customer logins, while RBAC scoping limits what the projected identity can do.
+For customer-owned tenants (where the customer keeps their tenant root but delegates platform management to the platform operator), Azure Lighthouse provides cross-tenant resource management. Lighthouse projects an operator-side identity (group + delegation manifest) into the customer tenant; the operator can operate the customer's resources without per-customer logins, while RBAC scoping limits what the projected identity can do.
 
 *Covered in depth in [L-1 (forthcoming)](/posts/mg-hierarchy-multi-customer/), [L-7 (forthcoming)](/posts/multi-region-without-region-mgs/).*
 
@@ -590,18 +602,18 @@ DINE-deployed diagnostic settings push signals from every resource into Tier 1; 
 
 The architectural payoff is delegation without bleed: each customer's logs live in the customer's own Tier 1 workspace; the SOC reads Tier 2 (their content + the per-customer Tier 1 references); audit/forensic restores from Tier 3 happen on the central workspace without exposing other customers' logs.
 
-*Covered in depth in [L-8 (forthcoming)](/posts/three-tier-logging-architecture/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization-mssp/).*
+*Covered in depth in [L-8 (forthcoming)](/posts/three-tier-logging-architecture/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization/).*
 
 ### 16. New nodes — one-paragraph introductions
 
 These twelve nodes appear in the master diagram but don't yet have a full sub-diagram in this post. Each will get its own slice-post over time; the paragraphs below name the node, place it in its layer, and cite the canonical doc anchor.
 
 - **Platform delivery pipeline (Layer 1 — Delivery).** Multi-stage unified pipeline that consumes the JSON Schema produced from the Engagement Template DOCX, then orchestrates every downstream stage: identity bootstrap, MG vending, Subscription Vending (`lz-vending`), Hub & Spoke deployment, EPAC + AMBA assignment, Sentinel connector wire-up, CA persona deployment, customer cut-over. One pipeline, one engagement record, idempotent. Lives in the platform management org with the platform security org carrying the shared-library fork.
-- **Cost Management (Layer 2 — Azure substrate).** Per-customer billing rollup, budget enforcement at MG and subscription scope, anomaly detection that fires AMBA Action Groups when a customer's spend slope crosses threshold. Tied to the reference platform's chargeback model — each customer is a separate cost-management scope so the MSSP can split invoices per engagement without re-tagging at billing time.
+- **Cost Management (Layer 2 — Azure substrate).** Per-customer billing rollup, budget enforcement at MG and subscription scope, anomaly detection that fires AMBA Action Groups when a customer's spend slope crosses threshold. Tied to the reference platform's chargeback model — each customer is a separate cost-management scope so the platform operator can split invoices per engagement without re-tagging at billing time.
 - **Subscription Vending (Layer 1 — Delivery).** `lz-vending` Terraform module that creates per-customer subscriptions inline with the platform delivery pipeline. The same pipeline run creates the subscription, places it under the correct per-customer LZ MG, assigns the policy-set, and creates the subscription-scoped RBAC groups (already PIM-eligible at creation — no follow-up stage, no race condition).
 - **Compliance Framework Mapping (Layer 1 — Delivery).** A documented mapping between platform policy assignments and ~12 regulatory frameworks (CIS / ISO 27001 / SOC 2 / NIS2 / PCI DSS / GDPR / NIST 800-53 / HITRUST / CMMC / DORA / EU AI Act / NIST CSF). The mapping is the artefact; Defender for Cloud reads it to populate the compliance dashboard.
-- **Managed HSM (Layer 2 — Azure substrate).** FIPS 140-3 Level 3 customer-managed key store. Backs the sovereign L2 and L3 encryption requirements: customer keys never leave the HSM boundary, the MSSP can't read them, and the Confidential Isolated MG references HSM keys for storage + compute encryption.
-- **Administrative Units (Layer 3 — Identity & Access).** AU-scoped administration for delegated roles — particularly relevant for tenants where the MSSP holds only a subset of admin authority (e.g., security AU only, not identity AU). CA policies can target AU-scoped admins separately from tenant-global admins.
+- **Managed HSM (Layer 2 — Azure substrate).** FIPS 140-3 Level 3 customer-managed key store. Backs the sovereign L2 and L3 encryption requirements: customer keys never leave the HSM boundary, the platform operator can't read them, and the Confidential Isolated MG references HSM keys for storage + compute encryption.
+- **Administrative Units (Layer 3 — Identity & Access).** AU-scoped administration for delegated roles — particularly relevant for tenants where the platform operator holds only a subset of admin authority (e.g., security AU only, not identity AU). CA policies can target AU-scoped admins separately from tenant-global admins.
 - **Maester (Layer 5 — Assurance).** PowerShell + Pester-based test framework that asserts tenant security posture against ~200 checks (CA configuration, PIM tier policies, authentication methods, device controls, app consent). Run on a schedule from the platform security org; results pushed into Sentinel as a custom data source so detections can fire on regressions.
 - **Zero Trust Assessment (Layer 5 — Assurance).** A fork of the open-source Zero Trust Assessment with 200+ Zero Trust-specific tests added by the platform team. Findings feed into Defender for Cloud as additional posture signals and into Sentinel as a separate evidence stream.
 - **Microsoft-hosted agents (Layer 1 — Delivery).** Parallel agent pool used alongside ACI-based self-hosted agents for non-sovereign workloads where the public Microsoft image is acceptable and the cold-start time matters more than the workload-identity-only constraint. Self-hosted (UAMI + WIF, no PAT) carries the sovereign workloads; Microsoft-hosted carries the rest.
@@ -622,7 +634,7 @@ The master diagram above shows ~32 nodes across five layers, with the load-beari
 - **Maester + ZTA → Sentinel → Layer 1 next delivery wave** — the Layer 5 → Layer 4 feed lands assurance findings as Sentinel evidence; the dashed Layer 5 → Layer 1 feedback edge closes the cycle by feeding findings back into the Engagement Template revision pipeline. Without this loop, assurance is just observation; with it, the platform reconfigures itself in response to its own findings.
 - **Platform security org ADO ← (no auto-sync) ← Platform management org ADO** — the shared-library repo lives in two repos, one per ADO organization, intentionally without automatic synchronisation. Code review on the management org's side never lands in the security org's side without a separate explicit PR; supply-chain compromise of the management org can't reach detections or policies.
 
-The combined picture is ~28 master-diagram edges + eight cross-layer edges hidden in the prose + a large set of implicit dependencies inside the per-node detail diagrams. That's the size of an MSSP-class reference platform — too dense for one viewable graph, manageable as a layered map.
+The combined picture is ~28 master-diagram edges + eight cross-layer edges hidden in the prose + a large set of implicit dependencies inside the per-node detail diagrams. That's the size of a multi-tenant reference platform — too dense for one viewable graph, manageable as a layered map.
 
 ## Where each piece is covered in depth
 
@@ -648,11 +660,11 @@ The closing table — every top-level node, the slice-post that deep-dives it, s
 | 8 | EPAC + AMBA (dual EPAC) | [S-13](/posts/dual-epac-tamper-proof/) | Planned |
 | 9 | Platform delivery pipeline | dedicated delivery-pipeline post (forthcoming) | Planned |
 | 10 | UTCM — concept | [S-9](/posts/utcm-concept-and-primitives/) | Planned |
-| 10 | UTCM — drift detection | [S-10](/posts/utcm-drift-detection-mssp-scale/) | Planned |
+| 10 | UTCM — drift detection | [S-10](/posts/utcm-drift-detection-at-scale/) | Planned |
 | 10 | UTCM vs M365DSC vs EPAC | [S-11](/posts/utcm-vs-m365dsc-vs-epac/) | Planned |
 | 11 | Defender portal migration | [O-9](/posts/defender-portal-migration-march-2027/) | Planned |
 | 12 | Sentinel hunting | [O-1](/posts/sentinel-hunting-pim-activations/) | Planned |
-| 12 | Sentinel cost optimisation | [O-8](/posts/sentinel-cost-optimization-mssp/) | Planned |
+| 12 | Sentinel cost optimisation | [O-8](/posts/sentinel-cost-optimization/) | Planned |
 | 12 | Workspace Manager / per-customer Sentinel | [O-10](/posts/workspace-manager-sentinel-per-customer/) | Planned |
 | 13 | Defender for Cloud | [O-2](/posts/defender-for-cloud-mg-scope/) | Planned |
 | 13 | Compliance framework mapping | [O-7](/posts/compliance-framework-mapping-dfc/) | Planned |

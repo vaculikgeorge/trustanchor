@@ -318,9 +318,9 @@ This pattern is a poor fit for:
 
 The principle — *remove every long-lived credential from the agent and lean on
 Entra-issued, short-lived tokens for everything* — applies to any regulated tenant.
-In a reference MSSP platform, it's load-bearing.
+In the reference platform, it's load-bearing.
 
-This worked example is distilled from real multi-customer MSSP delivery, generalized here rather than any single customer's deployment.
+This worked example is distilled from real multi-customer delivery in regulated Microsoft cloud environments, generalized here rather than any single customer's deployment.
 
 **The constraint that forced it.** The reference platform's Conditional Access stack disallows
 both PATs and Entra app client secrets organisation-wide. There's no exception

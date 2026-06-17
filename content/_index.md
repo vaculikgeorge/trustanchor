@@ -10,4 +10,4 @@ At some point, every environment — Microsoft cloud included — hits the same 
 run: everything-as-a-code --source git --on-drift enforce
 ```
 
-This blog covers the architecture of auditable Microsoft cloud environments: identity governance designed to be inspectable, delivery pipelines that carry their own proof, and the design space where both connect. The writing comes from production projects — identity modernisation (AD FS to Microsoft Entra ID, AD and Entra hardening), banking application security, M365 tenant migrations, MSSP platform design, Azure Arc deployments, global cybersecurity policy delivery, and more.
+This blog covers the architecture of auditable Microsoft cloud environments: identity governance designed to be inspectable, delivery pipelines that carry their own proof, and the design space where both connect. The writing comes from production projects — identity modernisation (AD FS to Microsoft Entra ID, AD and Entra hardening), banking application security, M365 tenant migrations, multi-tenant platform design, Azure Arc deployments, global cybersecurity policy delivery, and more.
