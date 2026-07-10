@@ -1,6 +1,6 @@
 +++
 title = 'The reference platform — the high-level scheme'
-date = '2026-06-05T11:00:00+02:00'
+date = '2026-07-10T11:00:00+02:00'
 draft = false
 tags = ['architecture', 'platform', 'multi-tenant', 'identity-governance', 'azure-landing-zones', 'm365-tenant-config']
 categories = ['Architecture']
