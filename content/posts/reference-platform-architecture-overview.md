@@ -1,7 +1,7 @@
 +++
 title = 'The reference platform — the high-level scheme'
 date = '2026-06-05T11:00:00+02:00'
-draft = true
+draft = false
 tags = ['architecture', 'platform', 'multi-tenant', 'identity-governance', 'azure-landing-zones', 'm365-tenant-config']
 categories = ['Architecture']
 summary = 'The whole reference platform fits on one page — and each post deep-dives a single component. The platform is a multi-tenant, multi-engagement, regulated-cloud delivery vehicle for Microsoft Entra + Azure + M365 governance; this post is the high-level map — a consolidated view of ~20 components across five layers (Delivery / Security operations / Identity / Substrate / Assurance) and the load-bearing dependencies between them. It is the territory every slice-post sits on.'
