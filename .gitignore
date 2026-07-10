@@ -6,3 +6,6 @@ PRE-PUBLISH-CHECKLIST.md
 
 # Local-only orphan pages (CV, project references) — never published
 private/
+
+# Local diagram tooling (Excalidraw generators + Playwright node_modules) — never published
+tools/

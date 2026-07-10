@@ -3,7 +3,7 @@ title = 'Two perimeters, one trust anchor'
 date = '2026-05-26T10:00:00+02:00'
 draft = false
 tags = ['thesis', 'identity-governance', 'devsecops', 'iac', 'positioning', 'everything-as-code']
-categories = ['Meta']
+categories = ['Architecture']
 summary = 'The problem that started this blog: a Microsoft cloud tenant that grew faster than any person could track. The solution: everything-as-code — CA, PIM, Defender, Sentinel, M365 settings, Azure infrastructure all declared in version-controlled repos and delivered by pipeline. And the two-perimeter identity architecture that makes it trustworthy.'
 +++
 

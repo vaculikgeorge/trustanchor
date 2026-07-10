@@ -132,12 +132,8 @@
     transform: translateY(-1px);
   }
 
-  /* Subscribe pill — absolutely centered in the nav on every page. */
-  /* Nav spreads to match the cert-to-cert width on the About page.
-     The cert-to-cert grid (.ta-about-3col) fills the full max-w-7xl (80rem)
-     box. The nav inner wrapper has lg:px-32 (8rem each side) which shrinks it
-     to 64rem — zero that out so the nav spans the same 80rem. The .main-menu
-     padding below provides the visible inset for the logo and toggle. */
+  /* Nav spreads to match the cert-to-cert width on the About page (zero the
+     outer lg:px-32 so the nav spans the full max-w-7xl box). */
   @media (min-width: 1024px) {
     .fixed.inset-x-0 > div {
       padding-left: 0 !important;
@@ -147,23 +143,25 @@
 
   .main-menu {
     position: relative;
-    /* 1rem on both sides — symmetric visible buffer at the nav edges now that
-       the outer lg:px-32 is cleared. Logo and toggle each sit ~20px inside the
-       cert-to-cert edge at 20px root font-size. */
     padding-left: 1rem !important;
     padding-right: 1rem !important;
   }
+
+  /* Subscribe pill — shared look; positioning is per-breakpoint below.
+       >=1024px : absolutely centered in the (wide) nav — the centre is empty here.
+       <=1023px : fixed bottom-left FAB, never overlapping the bar.
+     The old design centred the pill from 768px up and only fell back to a FAB
+     at <=639px, with a dead "display:none" band at 640-767px. Portrait windows
+     and 110-175% browser zoom shrink the effective width across those bands, so
+     the pill in turn overlapped the menu, vanished, then jumped to the corner.
+     Two regimes (centred only when genuinely wide) remove all three states. */
   .ta-nav-subscribe {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
     display: inline-flex;
     align-items: center;
-    background-color: #0078D4;       /* same logo blue as everywhere */
+    background-color: #0078D4;
     color: #ffffff;
     padding: 0.4rem 1.1rem;
-    border-radius: 0.5rem;           /* less rounded, matches footer button */
+    border-radius: 0.5rem;
     font-size: 0.9rem;
     font-weight: 600;
     text-decoration: none;
@@ -171,14 +169,48 @@
     white-space: nowrap;
     z-index: 1;
   }
-  .ta-nav-subscribe:hover {
-    background-color: #106ebe;
-    transform: translate(-50%, calc(-50% - 1px));
+  .ta-nav-subscribe:hover { background-color: #106ebe; }
+
+  @media (min-width: 1024px) {
+    .ta-nav-subscribe {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .ta-nav-subscribe:hover { transform: translate(-50%, calc(-50% - 1px)); }
   }
-  /* 640–767 px (tablet): absolutely-centered pill still crowds the nav at
-     this width range — hide it here and show it inline at ≤639 px below. */
-  @media (min-width: 640px) and (max-width: 767px) {
-    .ta-nav-subscribe { display: none; }
+
+  @media (max-width: 1023px) {
+    .ta-nav-subscribe {
+      position: fixed;
+      bottom: 1.25rem;
+      left: 1.25rem;        /* scroll-to-top arrow owns the right */
+      right: auto;
+      top: auto;
+      transform: none;
+      z-index: 200;
+      font-size: 0.85rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 2rem;  /* full pill — standard FAB */
+      box-shadow: 0 4px 16px rgba(0, 120, 212, 0.40);
+    }
+    .ta-nav-subscribe:hover { transform: translateY(-2px); }
+  }
+
+  /* Anchor-scroll offset — keep in-page targets (TOC headings, #subscribe) clear
+     of the fixed top bar; without it they land UNDER the nav. --ta-topbar-h is
+     the measured bar height (set in the script below). */
+  :where(h1, h2, h3, h4, h5, h6)[id],
+  #subscribe {
+    scroll-margin-top: calc(var(--ta-topbar-h, 64px) + 1.25rem);
+  }
+  @media (max-width: 1023px) {
+    /* also clear the sticky TOC summary that sits just under the nav on mobile */
+    :where(h1, h2, h3, h4, h5, h6)[id],
+    #subscribe {
+      scroll-margin-top: calc(var(--ta-topbar-h, 64px) + 3.75rem);
+    }
   }
 
   /* ───── Home page (custom layout) ───── */
@@ -728,6 +760,58 @@
   /* .ta-panel keeps its 1.5rem padding (cards have their own internal padding). */
   .ta-panel { padding: 1.5rem; }
 
+  /* Homepage "Start here" — two-panel feature grid (thesis + reference-platform map). */
+  .ta-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .ta-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .ta-panel-feature {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    padding: 1.75rem;
+  }
+  .ta-panel-feature:hover {
+    transform: translateY(-2px);
+    border-color: #0078D4 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.10),
+                0 4px 6px -4px rgba(0, 0, 0, 0.06);
+  }
+  html.dark .ta-panel-feature:hover {
+    border-color: #4ca6e8 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.40),
+                0 4px 6px -4px rgba(0, 0, 0, 0.25);
+  }
+  .ta-feature-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #0078D4;
+    margin-bottom: 0.5rem;
+  }
+  html.dark .ta-feature-label { color: #4ca6e8; }
+  .ta-feature-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.6rem 0;
+    color: #1a1a1a;
+  }
+  html.dark .ta-feature-title { color: #f5f5f5; }
+  .ta-feature-desc {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    margin: 0;
+    color: #525252;
+  }
+  html.dark .ta-feature-desc { color: #a3a3a3; }
+
   /* Hover lift — only the clickable variants. */
   .ta-panel-category:hover,
   .ta-card:hover,
@@ -1155,32 +1239,9 @@
       font-size: 16px;
     }
 
-    /* ── Nav Subscribe pill → floating action button ────────────────────────
-       Removing the pill from the nav flow entirely fixes "Trust Anchor"
-       truncation — the nav has room again.
-       Also fixes the "slides to top-left on tap" bug: the hover rule below
-       uses translate(-50%,-50%), which was written for position:absolute.
-       On mobile, a tap triggers :hover; with position:static that translated
-       the pill off-screen. position:fixed + transform:none !important both
-       neutralise the issue. The pill stays visible as the user scrolls. */
-    .ta-nav-subscribe {
-      display: inline-flex !important; /* override the 640–767 px hide rule */
-      position: fixed !important;
-      bottom: 1.25rem;
-      left: 1.25rem;      /* left side — scroll-to-top arrow owns the right */
-      right: auto;
-      top: auto;
-      transform: none !important;
-      z-index: 200;
-      font-size: 0.85rem;
-      padding: 0.5rem 1.1rem;
-      border-radius: 2rem;             /* full pill shape — standard FAB look */
-      box-shadow: 0 4px 16px rgba(0, 120, 212, 0.40);
-      margin: 0;
-    }
-    .ta-nav-subscribe:hover {
-      transform: translateY(-2px) !important; /* lift only — no lateral shift */
-    }
+    /* (Subscribe pill FAB now lives in the shared @media (max-width:1023px)
+       rule near the top of this file — covers phones, tablets, and zoomed/
+       portrait desktops in one place.) */
 
     /* ── Brand band ──────────────────────────────────────────────────────────
        Stack logo mark above text, shrink both to fit the narrower column. */
@@ -1418,6 +1479,54 @@
   html.dark .chroma .sx,
   html.dark .chroma .l                  { color: #86EFAC; } /* values: green-300 */
   html.dark .chroma                     { background-color: #0D1B2A; } /* deeper navy */
+
+  /* ── Floating mobile TOC ──────────────────────────────────────────────────
+     Below lg (1024px) Blowfish renders the TOC as a collapsed dropdown at the
+     top of the article (.toc-inside) that scrolls away after the first screen.
+     Pin it just under the fixed top bar so it stays reachable while reading.
+     The sticky element must be the TOC COLUMN wrapper (.ta-toc-col), NOT .toc:
+     a sticky box only travels within its parent's height, and .toc's parent is
+     exactly its own height — whereas .ta-toc-col's parent is the full-height
+     article <section>. --ta-topbar-h is measured in JS below (the fixed nav's
+     real height, which differs between the 16px-root phone scale and the
+     20px-root desktop-portrait scale). */
+  @media (max-width: 1023px) {
+    .ta-toc-col {
+      position: sticky;
+      top: calc(var(--ta-topbar-h, 64px) + 6px);
+      z-index: 40;                 /* above article content, below fixed nav (z-100) */
+      margin-bottom: 1rem;
+    }
+    /* Render the dropdown as a self-contained floating card — opaque, so the
+       article text scrolling underneath does not bleed through. */
+    .ta-toc-col .toc { padding-left: 0; }
+    .ta-toc-col .toc-inside {
+      margin-inline-start: 0;
+      padding-inline-start: 0;
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.5rem;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+    }
+    html.dark .ta-toc-col .toc-inside {
+      background-color: #243044;
+      border-color: #2a3550;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    }
+    .ta-toc-col .toc-inside > summary {
+      margin-inline-start: 0;
+      padding: 0.5rem 0.9rem;
+      background-color: transparent;   /* the card supplies the background */
+    }
+    .ta-toc-col .toc-inside > div {
+      margin-inline-start: 0;
+      padding: 0.25rem 0.9rem 0.7rem;
+      border-inline-start: 0;          /* drop the dotted rail on mobile */
+      max-height: 60vh;                /* long TOCs scroll instead of covering the page */
+      overflow-y: auto;
+    }
+  }
 </style>
 
 {{/* Cloudflare Web Analytics — privacy-friendly, no cookies, GDPR-clean. */}}
@@ -1490,5 +1599,24 @@
     } else {
       injectSubscribe();
     }
+  })();
+
+  // ── Measure the fixed top bar so the floating mobile TOC can sit right under
+  //    it (nav height differs between the 16px-root phone and 20px-root scales). ─
+  (function () {
+    function setTopbarH() {
+      var bar = document.querySelector('.fixed.inset-x-0.z-100');
+      if (bar) {
+        document.documentElement.style.setProperty('--ta-topbar-h', bar.offsetHeight + 'px');
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setTopbarH);
+    } else {
+      setTopbarH();
+    }
+    window.addEventListener('load', setTopbarH);
+    window.addEventListener('resize', setTopbarH, { passive: true });
+    window.addEventListener('orientationchange', setTopbarH, { passive: true });
   })();
 </script>

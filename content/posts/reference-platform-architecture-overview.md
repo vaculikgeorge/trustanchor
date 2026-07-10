@@ -4,700 +4,620 @@ date = '2026-06-05T11:00:00+02:00'
 draft = true
 tags = ['architecture', 'platform', 'multi-tenant', 'identity-governance', 'azure-landing-zones', 'm365-tenant-config']
 categories = ['Architecture']
-summary = 'The reference platform — a multi-tenant, multi-customer, regulated-cloud delivery vehicle for Microsoft Entra + Azure + M365 governance. This post is the high-level map — one Mermaid diagram with ~32 components stacked in five layers (Delivery / Substrate / Identity / Security operations / Assurance) and the load-bearing dependencies between them. Every other post on this blog deep-dives one node; this one is the territory each of them sits on.'
+summary = 'The whole reference platform fits on one page — and each post deep-dives a single component. The platform is a multi-tenant, multi-engagement, regulated-cloud delivery vehicle for Microsoft Entra + Azure + M365 governance; this post is the high-level map — a consolidated view of ~20 components across five layers (Delivery / Security operations / Identity / Substrate / Assurance) and the load-bearing dependencies between them. It is the territory every slice-post sits on.'
 +++
 
-> The reference platform is one diagram. Every post on this blog deep-dives one node.
+> The whole reference platform fits on one page — and each post deep-dives a single component.
 
 ## TL;DR
 
-The reference platform behind these posts is a multi-tenant delivery vehicle for Microsoft cloud governance — Entra, Azure, M365, Defender, Sentinel, ADO pipelines, Terraform delivery, policy-as-code, observability — designed to onboard multiple regulated customers into a shared substrate without losing per-customer isolation. It builds on Microsoft's Azure Landing Zone (ALZ) and Cloud Adoption Framework (CAF) reference architectures and extends them with the multi-tenant separation, supply-chain isolation, and detection-as-code patterns that a multi-customer platform demands.
+The reference platform behind these posts — defined in [What the reference platform means](#what-means) — is a multi-tenant Microsoft cloud governance platform spanning Entra, Azure, M365, Defender, Sentinel, ADO pipelines, Terraform delivery, policy-as-code, and observability. It builds on Microsoft's Azure Landing Zone (ALZ) and Cloud Adoption Framework (CAF) reference architectures and extends them with the multi-tenant separation, supply-chain isolation, and detection-as-code patterns a multi-engagement platform demands.
 
-This post is the **map**. The diagram below has ~32 components stacked into five layers — Delivery (everything-as-code that builds the platform) / Azure substrate (what exists in customer tenants) / Identity & Access (governance over who can act on the substrate) / Security operations (observability + response over the first three) / Assurance (validation that the first four meet declared standards). Every other post on this blog covers one slice — I-1 (PIM at scale) is a deep-dive into the PIM node; I-2 (JIT ADO access) drills into the auth-context binding between PIM and CA; S-1 (no-PAT agents) walks the Delivery-layer node for the self-hosted ADO agents; and so on. Read this post first, then jump to whichever slice-post matches what you're working on; this one stays useful as a "where am I" reference whenever a slice-post references a component from another layer.
+This post is the **map**. The diagram below is a consolidated map — ~20 scope-nodes across five layers — Delivery (everything-as-code that builds the platform) / Security operations (observability + response over the platform) / Identity & Access (governance over who can act on the substrate) / Azure substrate (what exists in the managed Azure environment) / Assurance (validation that the first four meet declared standards). Every other post on this blog covers one slice — [PIM at scale](/posts/pim-at-scale-three-domains/) is a deep-dive into the PIM node; [JIT ADO access](/posts/jit-ado-via-pim-and-ca-auth-contexts/) drills into the auth-context binding between PIM and CA; [no-PAT runners](/posts/no-pat-ado-agents/) walks the Delivery-layer node for the Azure DevOps runners; and so on. Every slice-post links back here, so think of this as the map you return to — a "where am I" reference for how the component a post deep-dives connects to the rest of the platform across layers.
 
-The post is intentionally **sanitised and principle-level**. No customer-specific data, no internal management-group names, no role-list specifics. Those land in the slice-posts. This post is the architectural pattern, not the deployed instance.
+The post is intentionally **principle-level** — the architectural pattern, not the deployed instance. And unlike the slice-posts, it carries no separate "How this plays out in the reference platform" section — the whole post *is* that section: the map is the reference-platform content, and each node's worked detail lands in its slice-post.
 
-## What "the reference platform" means
+## What "the reference platform" means {#what-means}
 
-Across this blog, **the reference platform** is a single, named platform that every post uses as a consistent worked example — a multi-tenant, multi-customer Microsoft cloud governance platform for regulated environments. It is a composite drawn from real delivery, with every identifying detail deliberately generalized:
+Across this blog, **the reference platform** is a single, named platform that every post uses as a consistent worked example — a multi-tenant, multi-engagement Microsoft cloud governance platform for regulated environments. It is a composite drawn from real delivery, with every identifying detail deliberately generalized:
 
-- **Customers** are illustrative (Contoso, Fabrikam), never real ones.
+- **Slice owners** are illustrative (Contoso, Fabrikam), never real ones.
 - **Identifiers** — authentication-context labels, Conditional Access policy ranges, group / management-group / pipeline / script names — are described by *purpose*, not by any production naming scheme; where a concrete value would appear, it is a placeholder you substitute with your own.
 - **Numbers** — counts, durations, scale ceilings — are representative, not any one tenant's configuration.
 
-What is real is the *architecture and the reasoning*: the layering, the dependencies, the trade-offs. The reference platform exists so those patterns can be shown concretely without exposing any single organization's deployment. Read "the reference platform does X" as "this is how the pattern lands in practice," not "here is a production system you can fingerprint."
+What is real is the *architecture and the reasoning*: the layering, the dependencies, the trade-offs. The reference platform exists so those patterns can be shown concretely without exposing any single organization's deployment. Read "the reference platform does X" as "this is how the pattern lands in practice."
 
-The principles are universal; the implementations are Microsoft; the reference platform is the worked example that ties them together.
+Think of it as a **series**. Each post presents real-world, unified scenarios for governing a Microsoft tenant entirely as code — the capabilities, integrations, and relationships, but also the dependencies, challenges, pitfalls, and gotchas. The capabilities are real and exist today; the approaches that tie them together are built out across the series in a deliberate direction.
 
-## The high-level scheme
+And the framing is deliberately org-shape-agnostic:
 
-{{< mermaid >}}
-flowchart BT
-    subgraph delivery["Layer 1 — Delivery (everything-as-code)"]
-        direction LR
-        ET["Engagement Template<br/>DOCX + JSON Schema v3.4"]
-        COB["Platform Delivery Pipeline<br/>multi-stage unified"]
-        ADO["Azure DevOps<br/>two organizations + Backup Chain"]
-        AGSH["Self-hosted agents<br/>ACI + UAMI + WIF"]
-        AGMS["Microsoft-hosted agents"]
-        TF["Terraform delivery<br/>Identity / Platform / Workload"]
-        SUBV["Subscription Vending<br/>lz-vending"]
-        EPAC["EPAC<br/>policy-as-code, dual EPAC"]
-        AMBA["AMBA-ALZ<br/>alert baseline + Action Groups"]
-        CFM["Compliance Framework Mapping<br/>~12 frameworks"]
-        ET --> COB
-        COB --> ADO
-        ADO --> AGSH
-        ADO --> AGMS
-        AGSH --> TF
-        AGMS --> TF
-        COB --> SUBV
-    end
+> It makes no difference whether the platform serves an MSSP's engagements or an internal production estate split across departments. An "Engagement Template," a "Landing Zone," or any other feature behaves identically whether its owner is an external party or an internal product owner — the concept holds either way. What varies from one to the next is only the granularity, and where the CI/CD separation between the parts is drawn.
 
-    subgraph substrate["Layer 2 — Azure substrate"]
-        direction LR
-        MG["MG hierarchy<br/>Platform / LZs / Sandbox / Decommissioned"]
-        CONF["Confidential Isolated MG<br/>L3 sovereign"]
-        HUB["Hub and Spoke<br/>Firewall + Bastion + DDoS + DNS + AVNM"]
-        GSA["Global Secure Access<br/>Internet + Private Access"]
-        LH["Azure Lighthouse<br/>cross-tenant management"]
-        COST["Cost Management<br/>billing + budgets + anomaly"]
-        HSM["Managed HSM<br/>FIPS 140-3 L3, customer-managed keys"]
-        MG --> CONF
-        HSM --> CONF
-    end
+## The principles, reflected
 
-    subgraph identity["Layer 3 — Identity and Access"]
-        direction LR
-        PIM["PIM<br/>3 management areas"]
-        CA["Conditional Access<br/>per-persona policy set, auth contexts"]
-        AS["Authentication Strengths<br/>and AAGUID allow-list"]
-        AMP["Authentication Methods policy<br/>tenant allow-list"]
-        AU["Administrative Units"]
-        PAW["Privileged Access Workstations"]
-        AMP --> AS
-        AS --> CA
-        PIM -->|step-up claimValue| CA
-        AU --> CA
-        PAW --> CA
-    end
+The companion thesis — [Two perimeters, one trust anchor](/posts/trust-anchor-thesis/) — argues the editorial position as a set of principles. This post is where they stop being abstract: each principle below is realized in a specific part of the reference platform. The diagram that follows is the map; this table is the legend that says *why* each piece is on it.
 
-    subgraph secops["Layer 4 — Security operations"]
-        direction LR
-        SENT["Microsoft Sentinel<br/>central Tier-2 workspace"]
-        WM["Workspace Manager<br/>parent to member"]
-        DL["Sentinel Data Lake<br/>Tier 3, up to 12yr"]
-        DFC["Defender for Cloud<br/>MCSB v2 baseline"]
-        DXDR["Defender XDR<br/>Unified RBAC"]
-        LOG["Three-tier logging<br/>Tier 1 / 2 / 3"]
-        LOG --> SENT
-        SENT --> WM
-        SENT --> DL
-    end
+| # | Principle (from the thesis) | How the reference platform reflects it | Where (layer / node) |
+|---|---|---|---|
+| 1 | **Tenant state you can't account for** is the problem | The whole five-layer stack exists to make state knowable: **declared** (L1), **observed** (L2), **gated** (L3), **present** (L4), **validated** (L5). | Layers 1–5 |
+| 2 | **Everything-as-code — the whole tenant surface, not just Azure infra** | Every node that produces tenant state is fed from version-controlled declarations: Conditional Access, PIM and Entra ID settings; Intune device config; Defender XDR settings and Defender-for-Cloud baselines; M365 tenant settings; Sentinel analytics/hunting rules (KQL); and Azure infra (Terraform / policy-as-code / alert baselines). The question shifts from *"what's set?"* to *"does the tenant match the declaration?"* | L1 (pipeline, Terraform, EPAC, AMBA) · L3 (CA/PIM as code) · L2 (Defender/Sentinel config + KQL) · plus the Intune / M365 / ADO nodes |
+| 3 | **The pipeline is the authorized change channel** | The delivery pipeline is the only path from Delivery to Substrate; repo = source of truth, run log = audit trail. Direct admin writes are the exception, not the norm. | L1 pipeline → all of L2/L3/L4 · [Three-domain Terraform with WIF](/posts/three-domain-terraform-wif/) |
+| 4 | **Admin accounts hold no standing access** | Privileged access is eligible-only PIM with peer approval, gated by CA step-up and PAW; standing admin rights are eliminated, leaving only break-glass and *documented* portal-only gaps. | L3 (PIM, CA, PAW) · [PIM at scale](/posts/pim-at-scale-three-domains/) · [Enforcing CA on PIM activation](/posts/enforce-ca-on-pim-activation/) |
+| 5 | **discover → declare → deliver → detect → decide** | The loop is explicit in the diagram below, with a **release/feature-discovery** front-end feeding it: Discovery + L1 declare and deliver, L2/L5 detect drift, and the **Drift-decision** gate routes every deviation one of three ways — integrate it into code, revert it via the pipeline, or accept and log it. | the labelled loop · DISC + L1 + L2 + L5 + Drift-decision |
+| 6 | **Assessment tools own the right side of the loop** | TCM, Maester, and the Zero Trust Assessment sit *above* delivery as the *standalone* double-check layer — they detect, snapshot, diff, and report; they don't deliver. Delivery also self-verifies: the pipeline reads back via Graph GET what it PATCHes (see [TCM](#node-utcm)). | L5 Assurance · L1 read-back |
+| 7 | **The Known-gaps register is a first-class artifact** | What has no writable API — portal-only toggles, undocumented endpoints — and any consciously-accepted drift is tracked in an explicit **Known-gaps register** (what isn't enforced as code, why, the runbook that fills it, a monitor where one exists), not left implicit. A documented gap is not a governance failure; an undocumented one is. | the Known-gaps register node (L1 / L5 boundary) |
+| 8 | **Two perimeters, one trust anchor** | Human principals (PIM, CA, JIT, auth contexts) and workload principals (WIF, scoped service principals, role-assignable-group boundaries, no-secret delivery) are governed against one threat model — visible as the two converging lanes in the Access-flow diagram. | L3 · L1 (self-hosted runners, Terraform WIF) · [No-PAT ADO agents on ACI](/posts/no-pat-ado-agents/) |
+| 9 | **The security boundary sits a layer deeper than the surface permission** | A broad-looking Graph grant is defensible because of a deeper Entra primitive — the `isAssignableToRole` boolean on the target groups — not the grant itself. Role-assignable groups and scope-minimal workload RBAC carry the real boundary. | L3 (PIM-for-Groups) · L2 (Defender Unified RBAC) · L1 (scoped app registration) · [Role-assignable PIM groups: the security boundary](/posts/role-assignable-pim-groups-security-boundary/) |
+| 10 | **Transferable principles, Microsoft implementation** | The platform is the worked example; the disciplines — least-privilege JIT, credential-less pipeline auth, step-up for high-risk operations — transfer to any cloud. The API surface shown here is Microsoft-specific; the discipline is not. | whole platform · [thesis](/posts/trust-anchor-thesis/) |
+| 11 | **The four categories carry the thesis** | The layers map onto the blog's four categories: **Secure Delivery** (L1), **Identity & Privileged Access** (L3), **Security Operations** (L2), **Landing Zone Architecture** (L4) — with **Assurance** (L5) validating all four. | L1↔Secure Delivery · L3↔Identity · L2↔Sec-Ops · L4↔LZ Arch |
 
-    subgraph assurance["Layer 5 — Assurance"]
-        direction LR
-        UTCM["UTCM<br/>Microsoft Graph beta"]
-        MAES["Maester<br/>test framework"]
-        ZTA["Zero Trust Assessment<br/>200+ tests"]
-    end
+Everything below shows *where* each of these lives. Read the diagram first for the shape; come back to this table whenever you want the *why*.
 
-    TF --> MG
-    SUBV --> MG
-    TF --> HUB
-    TF --> HSM
-    TF --> LH
-    TF --> COST
-    EPAC --> MG
-    AMBA -->|DINE| MG
+## The high-level scheme {#master-diagram}
 
-    ADO -->|Graph + ARM| PIM
-    ADO -->|Graph + ARM| CA
-    ADO -->|Graph| AMP
-    ADO -->|Graph| AU
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-master-light.svg?v=3" alt="The reference platform as five layers: Delivery, Security operations, Identity and Access, Azure substrate, and Assurance, with build-and-observe edges tinted by their source layer." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-master-dark.svg?v=3" alt="The reference platform as five layers: Delivery, Security operations, Identity and Access, Azure substrate, and Assurance, with build-and-observe edges tinted by their source layer." loading="lazy" decoding="async" />
+</figure>
+<style>
+.ta-diagram { max-width: 100%; margin: 1.75rem auto; overflow-x: auto; }
+.ta-diagram img { display: block; box-sizing: border-box; height: auto; max-width: 100%; max-height: 82vh; margin: 0 auto; cursor: zoom-in; }
+.ta-diagram .ta-diagram-dark { display: none; }
+.dark .ta-diagram .ta-diagram-light { display: none; }
+.dark .ta-diagram .ta-diagram-dark { display: block; }
+.ta-diagram:hover .mermaid-zoom-hint { opacity: 1; }
+</style>
 
-    GSA -->|network gate| CA
+*The diagram shows five layers — **Delivery → Security operations → Identity → Azure substrate → Assurance** — and it is a **consolidated map**: each box is a broad scope-node whose granular parts are named in its label and deep-dived in the per-node sections below. Edges are tinted by their source layer and show where each layer writes to, reads from, or monitors another; the load-bearing cross-layer edges are detailed in "How the layers connect". The Data Lake folds into the Sentinel box.*
 
-    MG -->|diag settings + DINE| LOG
-    DFC -->|compliance read| CFM
-    DXDR -->|Unified RBAC scope| MG
+## The operating loop {#operating-loop}
 
-    MAES --> SENT
-    ZTA --> SENT
-    ZTA --> DFC
-    UTCM -.->|reads config| MG
-    UTCM -.->|reads config| PIM
+The map above shows the layers; this shows how the platform *runs* them as a cycle — **discover → declare → deliver → detect → decide**. Release and feature discovery and the Engagement Template declare desired state; the pipeline delivers it; Security operations and Assurance detect drift while a release radar surfaces upstream Microsoft changes; and the **Drift decision** gate forces one of three outcomes — integrate the change into code, revert it via the pipeline, or accept and log it in the [Known-gaps register](#known-gaps), which feeds the next delivery wave. A loop without that gate is a dashboard; the gate is what makes governance resilient rather than aspirational.
 
-    MAES -.->|findings inform next delivery wave| ET
-    ZTA -.->|findings inform next delivery wave| ET
-
-    classDef futureCls stroke-dasharray: 5 5,stroke-width:3px
-    class GSA,UTCM,WM,DL futureCls
-
-    classDef deliveryCls fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f1f5f9
-    classDef substrateCls fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
-    classDef identityCls fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
-    classDef secopsCls fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#f1f5f9
-    classDef assuranceCls fill:#581c87,stroke:#a855f7,stroke-width:2px,color:#f1f5f9
-
-    class ET,COB,ADO,AGSH,AGMS,TF,SUBV,EPAC,AMBA,CFM deliveryCls
-    class MG,CONF,HUB,GSA,LH,COST,HSM substrateCls
-    class PIM,CA,AS,AMP,AU,PAW identityCls
-    class SENT,WM,DL,DFC,DXDR,LOG secopsCls
-    class UTCM,MAES,ZTA assuranceCls
-
-    style delivery stroke:#22c55e,stroke-width:2px,color:#22c55e,fill:#0f172a
-    style substrate stroke:#94a3b8,stroke-width:2px,color:#94a3b8,fill:#0f172a
-    style identity stroke:#60a5fa,stroke-width:2px,color:#60a5fa,fill:#0f172a
-    style secops stroke:#ef4444,stroke-width:2px,color:#ef4444,fill:#0f172a
-    style assurance stroke:#a855f7,stroke-width:2px,color:#a855f7,fill:#0f172a
-{{< /mermaid >}}
-
-*Nodes with dashed borders (GSA, UTCM, Workspace Manager, Sentinel Data Lake) are documented as design-intent or Microsoft Preview, not deployed in production tenants today. Everything else is deployed. The diagram reads bottom-up: **Delivery → Substrate → Identity → Security operations → Assurance**, with a dashed feedback edge from Assurance back to the Engagement Template — assurance findings drive the next delivery wave.*
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-operating-loop-light.svg?v=3" alt="The reference platform's operating loop as a cycle — Discover, Declare, Deliver, Detect, Decide — where the Drift-decision gate routes each finding to integrate (into code), revert (via the pipeline), or accept (into the Known-gaps register), which feeds the next delivery wave." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-operating-loop-dark.svg?v=3" alt="The reference platform's operating loop as a cycle — Discover, Declare, Deliver, Detect, Decide — where the Drift-decision gate routes each finding to integrate (into code), revert (via the pipeline), or accept (into the Known-gaps register), which feeds the next delivery wave." loading="lazy" decoding="async" />
+</figure>
 
 ## Reading the scheme
 
-The diagram is a **five-layer stack**. Each layer is a distinct *kind* of thing: artefacts that build the platform, the platform itself, the identity controls that gate access to it, the security operations that observe it, the assurance frameworks that validate it. Arrows flow bottom-up — Delivery produces Substrate, Substrate is governed by Identity and emits to Security operations, and Assurance closes the cycle by feeding findings back into the next Delivery wave.
-
-- **Layer 1 — Delivery (bottom, ten nodes).** Everything-as-code that produces platform state. The Engagement Template (DOCX + JSON Schema) drives the platform delivery pipeline, a multi-stage unified pipeline that orchestrates Azure DevOps across two organizations (a platform management org for customer Terraform delivery and a supply-chain-isolated platform security org for detections + the shared-library repo). The pipeline runs on a mix of self-hosted agents (ACI + UAMI + WIF for sovereign workloads) and Microsoft-hosted agents (parallel pool for non-sovereign workloads). Terraform delivery covers three domains — Identity / Platform / Workload. Subscription Vending (`lz-vending`) creates per-customer subscriptions inline with the pipeline. EPAC and AMBA-ALZ are the policy and alert baselines as code; Compliance Framework Mapping ties Defender for Cloud regulatory dashboards to ~12 frameworks (CIS / ISO 27001 / SOC 2 / NIS2 / PCI DSS / GDPR / NIST 800-53 / HITRUST / CMMC / DORA / EU AI Act / NIST CSF). None of these artefacts live inside customer tenants — they live in the platform ADO organizations and *produce* tenant state.
-- **Layer 2 — Azure substrate (seven nodes).** What exists in customer tenants after delivery runs. The MG hierarchy (Platform MGs / per-customer Landing Zone MGs / Sandbox / Decommissioned) is the structural backbone; the Confidential Isolated MG sits alongside it for L3 sovereign workloads. Hub & Spoke networking (per-customer hubs carrying Firewall + Bastion + DDoS + Private DNS, with AVNM for large fleets) is the connectivity layer. Global Secure Access (GSA) is the future-state network identity — Internet Access + Private Access, dashed-bordered in the diagram because it's design-intent, not yet universal substrate. Azure Lighthouse provides cross-tenant management for customer-owned tenants. Cost Management runs per-customer billing + budgets + anomaly detection. Managed HSM (FIPS 140-3 Level 3) holds the customer-managed keys for sovereign L2/L3 encryption.
-- **Layer 3 — Identity & Access (six nodes).** Cross-cutting governance over who can act on Layer 2. PIM operates in three management areas (Entra directory roles, Azure resource roles, PIM-for-Groups) and carries `claimValue` references that bind activations to Conditional Access auth contexts (the internal-user PIM activation context is the reference platform's primary step-up gate). CA's per-persona framework evaluates every sign-in through a triple-gate of device + network + authentication strength, across auth contexts for Protected Actions, internal-user PIM activation, and guest step-up. The Authentication Methods policy sits underneath — a tenant-level allow-list of credential types (FIDO2, WHfB, MS Authenticator, TAP), with weak methods like SMS and voice disabled at the floor. Authentication Strengths layer the more-restrictive grant control on top of that floor, and surface the FIDO2 AAGUID allow-list (hardware-attested keys only for the most sensitive contexts). Administrative Units scope CA + PIM for delegated administration. Privileged Access Workstations (PAW) are the hardware prerequisite for privileged personas — registration on a non-PAW device is blocked for the admin tier. *How* these primitives actually compose at runtime — registration journey, CA evaluation, PIM step-up, WIF — lives in the Access Flow companion diagram below.
-- **Layer 4 — Security operations (six nodes).** Observation + response surface over Layers 1–3. Microsoft Sentinel is the central Tier-2 security workspace; Workspace Manager (Microsoft Preview, future-state) pushes content one-way to per-customer member workspaces; Sentinel Data Lake (future-state Tier 3, up to 12-year retention) handles long-term audit storage. Defender for Cloud holds the MCSB v2 baseline and the compliance dashboard that Compliance Framework Mapping populates. Defender XDR is the cross-product detection plane with Unified RBAC (scoped to MGs via the Layer 2 substrate). Three-tier logging takes signals via DINE-deployed diagnostic settings — Tier 1 per-LZ Log Analytics, Tier 2 central, Tier 3 Data Lake.
-- **Layer 5 — Assurance (top, three nodes).** Validation that Layers 1–4 meet declared standards. UTCM (Unified Tenant Configuration Management, Microsoft Graph beta, future-state) reads tenant config across MGs + Entra for drift detection. Maester is a test framework for tenant security posture (200+ assertions across CA / PIM / authentication / device controls); Zero Trust Assessment is a fork with 200+ Zero Trust-specific tests. Both feed findings into Sentinel and DfC, and the dashed feedback edges to the Engagement Template close the cycle — assurance findings inform the next Delivery wave.
-
-**Read it as a cycle:** Delivery writes Substrate; Substrate is gated by Identity and observed by Security operations; Assurance scores all four; findings flow back into the next Engagement Template revision and the next Delivery run. The platform is operated by walking this cycle, not by walking the layers individually.
-
-## Access flow: registration, human, pipeline
-
-The master diagram shows the Layer 3 *components* — PIM, CA, Authentication Strengths, Authentication Methods policy, AUs, PAW — sitting alongside one another. This companion diagram shows the **runtime sequence** in which those components actually compose: how a method gets registered onto a user, how a human sign-in passes through the CA + PIM stack to reach a resource, and how a pipeline run reaches the same resource via Workload Identity Federation without touching the human-access stack at all. Three lanes, converging at the same Layer 2 target on the right.
-
-{{< mermaid >}}
-flowchart LR
-    subgraph registration["Registration lane"]
-        direction TB
-        ONB["User onboarded<br/>persona assigned"]
-        AMP_R["Authentication Methods policy<br/>tenant allow-list<br/>(FIDO2, WHfB, MS Auth, TAP)"]
-        PAW_R["PAW required<br/>for privileged personas"]
-        REG["User registers method<br/>aka.ms/mysecurityinfo"]
-        BIND["Method bound to user"]
-        ONB --> AMP_R
-        AMP_R --> PAW_R
-        PAW_R --> REG
-        REG --> BIND
-    end
-
-    subgraph human["Human-access lane"]
-        direction TB
-        USER["Operator or Admin"]
-        PORTAL["Portals<br/>Azure, Entra, Defender,<br/>Intune, Purview, ADO Web"]
-        SIGNIN["Entra ID sign-in"]
-        CA_USER["CA for users<br/>per-persona policy set<br/>triple-gate device + network + auth strength"]
-        AS_GATE["Auth strength enforces<br/>AAGUID allow-list<br/>for FIDO2"]
-        STEPUP["Step-up auth context<br/>if privileged"]
-        PIM_ACT["PIM activation<br/>JIT, time-bound, MFA-bound"]
-        USERTOKEN["User access token<br/>JIT-elevated"]
-        USER --> PORTAL
-        PORTAL --> SIGNIN
-        SIGNIN --> CA_USER
-        CA_USER --> AS_GATE
-        AS_GATE --> STEPUP
-        STEPUP --> PIM_ACT
-        PIM_ACT --> USERTOKEN
-    end
-
-    subgraph machine["Pipeline-access lane"]
-        direction TB
-        PIPELINE["ADO pipeline run<br/>YAML, repo-scoped"]
-        AGENT2["Self-hosted or<br/>Microsoft-hosted agent"]
-        OIDC["ADO OIDC token<br/>issuer vstoken.dev.azure.com<br/>subject sc://org/project/sc-name"]
-        ENTRAEXCH["Entra ID token exchange<br/>audience api://AzureADTokenExchange"]
-        SPTOKEN["UAMI or SP token<br/>scoped to target MG/sub"]
-        PIPELINE --> AGENT2
-        AGENT2 --> OIDC
-        OIDC --> ENTRAEXCH
-        ENTRAEXCH --> SPTOKEN
-    end
-
-    BIND -.->|enables sign-in| USER
-
-    USERTOKEN --> RES["Layer 2 resource<br/>MG / subscription / resource"]
-    SPTOKEN --> RES
-
-    classDef regCls fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#f1f5f9
-    classDef humanCls fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
-    classDef machineCls fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f1f5f9
-    classDef gateCls fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#f1f5f9
-    classDef targetCls fill:#1e293b,stroke:#94a3b8,stroke-width:3px,color:#f1f5f9
-
-    class ONB,AMP_R,PAW_R,REG,BIND regCls
-    class USER,PORTAL,SIGNIN,USERTOKEN humanCls
-    class PIPELINE,AGENT2,OIDC,ENTRAEXCH,SPTOKEN machineCls
-    class CA_USER,AS_GATE,STEPUP,PIM_ACT gateCls
-    class RES targetCls
-
-    style registration stroke:#f59e0b,stroke-width:2px,color:#f59e0b,fill:#0f172a
-    style human stroke:#60a5fa,stroke-width:2px,color:#60a5fa,fill:#0f172a
-    style machine stroke:#22c55e,stroke-width:2px,color:#22c55e,fill:#0f172a
-{{< /mermaid >}}
-
-**The registration lane.** Before a human can authenticate, a credential has to land on their account. The Authentication Methods policy at the tenant level sets the *floor* — SMS, voice, software TOTP are disabled tenant-wide; only the strong methods (FIDO2 hardware keys, Windows Hello for Business, Microsoft Authenticator, Temporary Access Pass for bootstrapping) are eligible. For privileged personas the registration *must* happen on a Privileged Access Workstation; CA registration policies block non-PAW devices for the admin tier. Once the method is bound to the user, that user can begin the Human-access lane.
-
-**The human-access lane.** An operator opens a browser, lands on a Microsoft portal (Azure, Entra admin centre, Defender, Intune, Purview, or the ADO web UI), and Entra signs them in. The full Conditional Access framework applies — the triple-gate of device + network + authentication strength, plus auth-context evaluation (Protected Actions, internal-user PIM activation, or guest step-up) if the operator is activating a PIM-eligible role. The Authentication Strengths gate enforces the FIDO2 AAGUID allow-list for the most sensitive contexts — only hardware-attested keys from the approved manufacturer list satisfy the grant. Only after CA grants and PIM JIT-elevates does the operator's access token reach the Layer 2 resource. Every portal click is a user-CA event.
-
-**The pipeline path.** An ADO pipeline run gets a pipeline-scoped OIDC token from `vstoken.dev.azure.com/<org-id>` with subject `sc://<org>/<project>/<service-connection>`. The self-hosted agent (UAMI on ACI) presents that token to Entra ID at the audience `api://AzureADTokenExchange`. Entra validates the federated credential (issuer + subject + audience must all match the configured `federatedIdentityCredential`) and issues an access token for the underlying identity — a service principal or a user-assigned managed identity. That access token then drives the ARM / Graph call. No password, no secret, no PAT anywhere in the chain.
-
-**The CA-coverage gap is real.** Conditional Access for users is the full triple-gate with auth-context binding. Conditional Access for *workload identities* is much narrower: only single-tenant service principals can be targeted, the conditions are limited to location and Entra ID Protection risk, the grant control is **block-only** (workload identities can't satisfy MFA / device controls), and **managed identities are exempt from Conditional Access entirely**. That last point matters: the platform's self-hosted-agent identities are UAMIs, so CA does *not* gate them. The gating comes from elsewhere — RBAC scope, the federated-credential trust (issuer + subject + audience must match), the ADO pipeline approvals/checks layered on the service connection, and the OIDC token's pipeline-scoped subject claim. Workload identity governance lives in the deployment plane (RBAC + WIF setup + ADO approvals), not in the identity plane.
-
-**Why this matters for the reference platform.** Read the master diagram with both paths in mind. Portal-driven changes (one-off admin actions, platform delivery stage approvals, PIM activations, break-glass) flow **USER → portal → user-CA → PIM → ARM/Graph**. Pipeline-driven changes (Terraform applies, EPAC desired-state runs, Workspace Manager content pushes, KQL deployments) flow **PIPELINE → agent → OIDC → Entra exchange → ARM/Graph**. The same platform components on the right of the diagram receive both. Sensitive admin operations are routed through portals on purpose, so the triple-gate plus PIM activation can apply. Bulk-deploy, drift-reconciliation, and continuous-enforcement run through WIF on purpose, so no human credential or stored secret is involved — and so the change is reproducible from version control.
+The diagram is a **five-layer map**. Each layer is a distinct *kind* of thing: artefacts that build the platform (Delivery), the security operations that observe it (Security operations), the identity controls that gate access to it (Identity & Access), the Azure substrate that hosts it (Azure substrate), and the assurance frameworks that validate all four (Assurance). The layers are not a strict dependency stack read in order — Delivery builds the platform; the Azure substrate is what results; Identity gates who can act on it; Security operations observes across all of them; Assurance validates that the whole picture meets declared standards. Edges in the diagram are tinted by their source layer and show where one layer writes to, reads from, or monitors another.
 
-**Sources:** [Workload identity federation for Azure DevOps](https://learn.microsoft.com/azure/devops/pipelines/release/configure-workload-identity?view=azure-devops), [Access Azure DevOps with Microsoft Entra workload identity](https://learn.microsoft.com/azure/devops/pipelines/library/add-devops-entra-service-connection?view=azure-devops), [Conditional Access for workload identities](https://learn.microsoft.com/entra/identity/conditional-access/workload-identity).
+- **Layer 1 — Delivery.** Everything-as-code that produces platform state. The **platform delivery pipeline** — a multi-stage pipeline that orchestrates Azure DevOps across separate organizations (a platform management org for slice-owner Terraform delivery and a supply-chain-isolated platform security org for detections + the shared-library repo) — produces that state; the **Engagement Template** (a JSON Schema) is its per-engagement input, parameterizing that engagement's **Landing Zone MGs** rather than the platform as a whole. The pipeline runs on Microsoft-hosted runners by default, with a self-hosted ACI pool for the confidential/sovereign subset and for cost at high volume. Terraform delivers the Azure substrate across several roots — platform foundation, landing-zone onboarding, network, and the security baseline. Subscription Vending (`lz-vending`) creates per-engagement subscriptions inline with the pipeline. EPAC and AMBA-ALZ are the policy and alert baselines as code — EPAC's DINE baseline **auto-enrolls every subscription into Defender for Cloud** at creation; Compliance Framework Mapping ties Defender for Cloud regulatory dashboards to a broad set of regulatory frameworks. Alongside that Azure-side channel (Terraform + Azure Policy), the pipeline runs a **Graph/PowerShell channel** for tenant config — its Entra-provisioning and CA-preparation stages write Entra objects, Conditional Access policies, and authentication strengths via Microsoft Graph, reading each write back to confirm it applied (see [TCM](#node-utcm)). None of these artefacts live inside the managed environments — they live in the platform ADO organizations and *produce* that state. One Delivery-side commitment is explicit here: a **Known-gaps register** is first-class. What has no writable API — portal-only toggles, manual-only settings — and any drift the team consciously accepts is tracked deliberately: what isn't enforced as code, why, the runbook that sets it, and a monitor where one exists.
+- **Layer 2 — Security operations.** Observation + response surface across the full platform. Microsoft Sentinel is the central Tier-2 security workspace; detection content deploys to the per-engagement member workspaces **as code from the shared library** (the repository-based pattern Microsoft designates as Workspace Manager's successor); Sentinel Data Lake (Tier 3, up to 12-year retention) handles long-term audit storage. Defender for Cloud holds the MCSB v2 baseline and the compliance dashboard that Compliance Framework Mapping populates. Defender XDR is the cross-product detection plane with Unified RBAC (scoped to MGs via the Layer 4 substrate). Three-tier logging takes signals via DINE-deployed diagnostic settings — Tier 1 per-LZ Log Analytics, Tier 2 central, Tier 3 Data Lake.
+- **Layer 3 — Identity & Access.** Cross-cutting governance over who can act on the platform — across Entra directory roles, Microsoft 365, and the Azure substrate alike. PIM operates in three management areas (Entra directory roles, Azure resource roles, PIM-for-Groups) and carries `claimValue` references that bind activations to Conditional Access auth contexts (the internal-user PIM activation context is the reference platform's primary step-up gate). CA's per-persona framework evaluates every sign-in through a triple-gate of device + network + authentication strength, across auth contexts for Protected Actions, internal-user PIM activation, and guest step-up. The Authentication Methods policy sets the credential floor (strong methods only) and CA Authentication Strengths the ceiling — including the FIDO2 AAGUID allow-list for the most sensitive contexts. Administrative Units scope CA + PIM for delegated administration, and Privileged Access Workstations (PAW) are the hardware prerequisite for privileged personas. **Global Secure Access** — Microsoft Entra's identity-centric SSE (Internet Access + Private Access) — belongs to this layer: it is a tenant-level Entra service that supplies the **compliant-network condition** Conditional Access evaluates. An emerging Microsoft capability the design adopts. *How* these primitives actually compose at runtime — registration journey, CA evaluation, PIM step-up, WIF — lives in the Access Flow companion diagram below. Two identity commitments are worth naming. First, **no admin holds standing privileged access**: every privileged action routes through eligible-only PIM activation plus CA step-up on a PAW, leaving break-glass and a small set of documented portal-only gaps as the only standing exceptions — the default footprint of every human admin on the control plane is zero. Second, **the security boundary sits a layer deeper than the surface permission**: a broad-looking Graph grant is defensible because of the `isAssignableToRole` boolean on the target groups, not the grant itself — role-assignable PIM groups, Defender XDR Unified RBAC, and scope-minimal workload RBAC all carry the real boundary one primitive below the permission. Audit each surface permission together with the primitive beneath it.
+- **Layer 4 — Azure substrate.** What exists in the managed Azure environment after delivery runs. The MG hierarchy (Platform MGs / per-engagement Landing Zone MGs / Sandbox / Decommissioned) is the structural backbone; the Confidential Isolated MG sits alongside it for L3 sovereign workloads. Hub & Spoke networking (per-engagement hubs carrying Firewall + Bastion + DDoS + Private DNS, with AVNM for large fleets) is the connectivity layer. Azure Lighthouse provides cross-tenant management for delegated tenants. Cost Management runs per-engagement billing + budgets + anomaly detection. Managed HSM (FIPS 140-3 Level 3) holds the customer-managed keys for sovereign L4/L3 encryption.
+- **Layer 5 — Assurance.** Validation that Layers 1–4 meet declared standards. The Tenant Configuration Management (TCM) APIs (Microsoft Graph, generally available; the wrapping Entra Tenant Governance portal remains in preview) read tenant config across MGs + Entra for drift detection. Maester is a test framework for tenant security posture (assertions across CA / PIM / authentication / device controls); Zero Trust Assessment is a fork with additional Zero Trust-specific tests. Both feed findings into Sentinel and DfC, and into the **Drift decision** gate — the gate that turns detection into a decision rather than a dashboard, via the three outcomes described in [the operating loop](#operating-loop) above.
 
-## Per-node detail
+**Read it as a cycle:** these five layers aren't a static stack — the platform *runs* them as the [operating loop](#operating-loop) above, not by walking them one at a time.
 
-The master diagram has expanded to ~32 components, but only 15 carry a full sub-diagram below. The remaining nodes — the platform delivery pipeline, Cost Management, Maester, Zero Trust Assessment, Subscription Vending, Compliance Framework Mapping, Managed HSM, Administrative Units, Microsoft-hosted agents, Authentication Methods policy, AAGUID, and PAW — are introduced by short paragraphs at the end of this section rather than full sub-diagrams. Each of those will get its own slice-post over time; this map names them so the diagram and the future deep-dives line up.
-
-Each of the 15 sub-diagrammed components below carries a TB Mermaid showing its internal pieces, a 2–4-paragraph explanation, and a pointer to the slice-post that deep-dives the node.
-
-### 1. PIM
+## Access flow: registration, human, pipeline {#access-flow}
 
-{{< mermaid >}}
-flowchart TB
-    PIM["PIM"]
-    PIM --> ENT["Entra directory roles<br/>(Microsoft Graph)"]
-    PIM --> AZR["Azure resource roles<br/>(Azure ARM)"]
-    PIM --> P4G["PIM-for-Groups<br/>(Microsoft Graph)"]
-    ENT --> RULES["Rule types per policy:<br/>Enablement / Expiration / Approval<br/>+ AuthenticationContext"]
-    AZR --> RULES
-    P4G --> ESR["EligibilityScheduleRequest<br/>(eligible member / eligible owner)"]
-    P4G --> RULES
-    RULES --> TIER["Tier-0 / Tier-1 / Tier-2<br/>(activation duration + approval)"]
-{{< /mermaid >}}
+The master diagram shows the Layer 3 *components* — PIM, CA, Authentication Strengths, Authentication Methods policy, AUs, PAW, GSA — sitting alongside one another. This companion diagram shows the **runtime sequence** in which those components actually compose: how an account is provisioned and a strong method registered onto it, how a human sign-in passes through the CA + PIM stack to reach a resource, and how a pipeline run reaches the same resource via Workload Identity Federation without touching the human-access stack at all. Four lanes — lifecycle, registration, human-access, and pipeline-access — converge on the same Layer 4 targets (the management APIs and admin portals) on the right.
 
-PIM is the JIT identity primitive in three management areas — Entra directory roles, Azure resource roles, and PIM-for-Groups. Each management area has its own `roleManagementPolicy` shape (Graph for Entra and Groups; ARM for Azure resources), and each policy is composed of sibling rule objects: enablement (which controls fire at activation — MFA, justification), expiration (how long the active assignment can persist), approval (whether activation routes through an approver), and the authentication-context binding (which Conditional Access context the activation request claims).
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-access-flow-light.svg?v=16" alt="Access flow as five labelled columns (lifecycle, registration, human-access, pipeline-access, and resource targets): an admin account is provisioned, a strong method is registered, a human sign-in passes the CA / auth-strength / PIM gates, and a pipeline reaches the same Layer-4 resource via WIF token exchange." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-access-flow-dark.svg?v=16" alt="Access flow as five labelled columns (lifecycle, registration, human-access, pipeline-access, and resource targets): an admin account is provisioned, a strong method is registered, a human sign-in passes the CA / auth-strength / PIM gates, and a pipeline reaches the same Layer-4 resource via WIF token exchange." loading="lazy" decoding="async" />
+</figure>
 
-The tiered model (Tier-0 / Tier-1 / Tier-2) is the reference platform's way of normalising activation policy across the Entra directory roles, every (role × scope) tuple on the Azure side, and both sides (Member + Owner) of every role-assignable group. All three management areas share one auth-context binding, so all activations clear the same Conditional Access evaluation — the per-tier difference is only duration and approval, not the gate.
+**Before registration: identity lifecycle as code.** The accounts that enter the registration lane aren't created by hand — an **identity-lifecycle pipeline** (joiner / mover / leaver) provisions them the same way the rest of the platform delivers: Microsoft Graph plan-apply over WIF, each write read back via GET to confirm it applied (the read-back pattern described under [TCM](#node-utcm)). Admin accounts are no more hand-built than subscriptions are.
 
-PIM-for-Groups extends the JIT pattern to anything that consumes group claims for authorisation — Defender XDR Unified RBAC roles assigned to groups, Azure DevOps project access evaluated against group membership, third-party SaaS that consumes Entra group claims. The eligible-member / eligible-owner pattern (governed symmetrically — see I-1's Member-vs-Owner trap) extends the policy spine into those downstream consumers without duplicating the activation primitive.
+It assigns a **tier** at onboard — Tier-0 (privileged admin: a least-privilege set of directory roles the operator selects, behind a two-approver gate), Tier-1 (workload admin: scoped resource roles, no directory roles), or Tier-2 (reader). Each tier is a version-controlled, PIM-eligible role bundle; the default is the lowest-privilege tier, and any promotion is a reviewed declaration change, not a click — the provisioning counterpart to the [PIM](#node-pim) mechanics.
 
-*Covered in depth in [I-1](/posts/pim-at-scale-three-domains/), [I-5 (forthcoming)](/posts/enforce-ca-on-pim-activation/), [I-6 (forthcoming)](/posts/role-assignable-pim-groups-security-boundary/).*
+Onboarding enforces a **cross-tenant primary-identity check**: every operational admin account must map to an enabled account in a separate authoritative identity tenant. The pipeline refuses to provision an account with no valid primary, and the daily govern run re-checks it — so orphan operational accounts and ghost admins can't accumulate.
 
-### 2. Conditional Access
+Offboarding and drift are gated too: offboard defaults to **soft-disable plus a quarantine window**, while a hard delete requires the same Tier-0 two-approver gate that governs privileged actions; and a **daily govern run** reconciles tier assignments, the admin roster, and the break-glass set against declared state read-only, reporting drift — the same L5 Assurance discipline TCM and Maester apply to tenant config, turned on identity itself. Once the pipeline has provisioned the account and assigned its eligible roles, the registration lane begins.
 
-{{< mermaid >}}
-flowchart TB
-    CA["Conditional Access framework"]
-    CA --> PER["Per-persona policy ranges<br/>CA-GLOBAL / CA-ADMIN / CA-INTERNAL / CA-WORKLOAD / CA-GSA / CA-AGENT / CA-GUEST / CA-BREAKGLASS"]
-    CA --> CTX["Auth contexts<br/>Protected Actions / step-up PIM / guest step-up"]
-    CA --> STR["Authentication strengths<br/>hardware-attested / phishing-resistant / registration / guest variants"]
-    CTX --> GATE["Triple-gate per context<br/>device + network + strength"]
-    PER --> POL["Per-persona policy set<br/>baseline + admins + internals + workloads + guests"]
-    POL --> RES["Conflict resolution<br/>Block beats grant; auth strength beats MFA; shortest SIF"]
-{{< /mermaid >}}
+**The registration lane.** Before a human can authenticate, a credential has to land on their account. The [Authentication Methods policy](#node-auth-methods) floor governs *which* methods may be registered — strong methods only. Registration itself is gated to a **trusted named-location**, with a **Temporary Access Pass (TAP)** bootstrapping first-time users so they can enrol a phishing-resistant method. Once the strong method is bound to the user, that user can begin the Human-access lane.
 
-Conditional Access is the gate every privileged operation passes through, but the framework is what makes it scale. Per-persona ranges — CA-GLOBAL, CA-ADMIN, CA-INTERNAL, CA-WORKLOAD, CA-GSA, CA-AGENT (the new AI-agent identity primitive), CA-GUEST, CA-BREAKGLASS — cover every sign-in surface the reference platform has to govern. The guest range is templated: a set of policies cloned per customer with the named location and authentication strength substituted per customer.
+**The human-access lane.** The operator starts on an ordinary **Entra-registered device** and signs in interactively. **Conditional Access for users** applies a device filter that routes the session onto a **[PAW](#node-paw)** and demands a **phishing-resistant** authentication strength. The operator reaches that PAW through the **Windows App** — an **Entra-joined, Intune-compliant Cloud PC**. **PIM activation happens on the PAW** and is gated further — to a **GSA-compliant network**, just-in-time and time-bound, and the FIDO2 [AAGUID allow-list](#node-aaguid) (hardware-attested keys only) — so no privileged role activates off it. Only after CA grants and PIM JIT-elevates does the operator's **user access token** reach the Layer 4 targets — the management APIs and admin portals on the right.
 
-This worked example is distilled from real multi-customer delivery in regulated Microsoft cloud environments, generalized here rather than any single customer's deployment.
+**The pipeline path.** An ADO pipeline run gets a pipeline-scoped OIDC token and — before anything reaches Azure — clears the service connection's **approval gate** (service-connection checks plus human approval). That human approval is not a lighter side-door: the approver grants it in the **ADO Web** portal, which is reached through the *same* human-access path a user follows to Layer 4 — a [PAW](#node-paw), the CA triple-gate, and JIT activation of the approver's eligible ADO access (no standing role) — so the pipeline's human checkpoint inherits the full human-access controls rather than bypassing them. New service connections use the **Microsoft Entra issuer** — `login.microsoftonline.com/<tenant-id>/v2.0`, subject `<entra-prefix>/sc/<org-id>/<service-connection-id>`. The pipeline **task** — not the runner — presents that token to Entra ID at the audience `api://AzureADTokenExchange`. Because the exchange is a property of the **service connection** (that subject names it) and of the task, it works identically whether the job runs on the self-hosted ACI runner or a Microsoft-hosted one. Entra validates the federated credential (issuer + subject + audience must all match the configured `federatedIdentityCredential`) and issues an access token for the identity that credential backs — the service connection's app registration. The ACI runner's own **UAMI is a separate identity**, used only for PAT-less runner registration (it acquires a short-lived Entra token that the runner's `config.sh` accepts in place of a PAT) and plays no part in this exchange. That access token then drives the ARM / Graph call. This is **workload identity federation (WIF)**: no password, no secret, no PAT anywhere in the chain — every other mention of WIF in this post is this same exchange.
 
-The three authentication contexts — Protected Actions for sensitive admin operations, internal-user PIM activation, and guest-side step-up (used for both guest lifecycle actions and guest PIM activation) — each trigger a **triple-gate**: a device control (block non-compliant or non-managed devices), a network control (block off-trusted-network — GSA where available, named locations where not), and a credential control (require a specific authentication strength). Three policies per context, evaluated as a block-wins-on-conflict, auth-strength-overrides-MFA, shortest-sign-in-frequency-wins set of rules.
+**The CA-coverage gap is real.** Conditional Access for users is the full triple-gate with auth-context binding. Conditional Access for *workload identities* is much narrower: only single-tenant service principals can be targeted, the conditions are limited to location and Entra ID Protection risk, the grant control is **block-only** (workload identities can't satisfy MFA / device controls), and **managed identities are exempt from Conditional Access entirely**. That last point matters: the platform's self-hosted-runner identities are UAMIs, so CA does *not* gate them. The gating comes from elsewhere — RBAC scope, the federated-credential trust (issuer + subject + audience must match), the ADO pipeline approvals/checks layered on the service connection, and the OIDC token's pipeline-scoped subject claim. Workload identity governance lives in the deployment plane (RBAC + WIF setup + ADO approvals), not in the identity plane.
 
-The authentication-strength catalog underneath spans several strengths — a hardware-attested strength (FIDO2 hardware-attested only, via an AAGUID allow-list), a phishing-resistant strength (WHfB + FIDO2 + x509), and registration and guest strengths for cases where a hardware key isn't operationally viable. The Authentication Methods policy at the tenant level sets the floor (SMS, voice, software TOTP are disabled at the tenant); CA Authentication Strengths layer the more-restrictive grant control on top.
+**Why this matters for the reference platform.** Read the master diagram with both paths in mind. Portal-driven changes — break-glass, portal-only gaps, and one-off actions that can't be codified — flow **USER → sign-in → CA → PAW → PIM → APIs / portals**. Pipeline-driven changes (Terraform applies, EPAC desired-state runs, repository-driven Sentinel content deployments) flow **PIPELINE → runner → approval gate → WIF exchange → APIs**. The same platform components on the right of the diagram receive both. The pipeline is the authorized change channel: codifiable changes — even sensitive ones — run through WIF, so the change is reproducible from version control and the pipeline's deployment-approval gate (not a role activation) is the control point. The portal path is the deliberate exception, where the triple-gate plus PIM activation apply. ADO makes the trade-off concrete: its high-privileged changes route through the pipeline's approval gate rather than a portal role activation (see [Azure DevOps](#node-ado)).
 
-*Covered in depth in [I-4 (forthcoming)](/posts/auth-contexts-in-practice/), [I-8 (forthcoming)](/posts/auth-strengths-vs-auth-contexts/), [I-9 (forthcoming)](/posts/protected-actions-in-entra/), [I-10 (forthcoming)](/posts/persona-based-ca-at-scale/), [I-11 (forthcoming)](/posts/ca-for-ai-agent-identity/), [I-13 (forthcoming)](/posts/fido2-aaguid-attestation-whitelisting/).*
+## Per-node detail {#per-node-detail}
 
+The consolidated master groups ~20 scope-nodes; each component behind them gets its own section below, **grouped by layer** (Delivery → Security operations → Identity → Azure substrate → Assurance) to match the diagram and the reading above. Each carries a 2–4-paragraph explanation and a slice-post pointer; most also have a sub-diagram inline, and the remainder get theirs in the Excalidraw diagram pass.
 
-### 3. Hub & Spoke network
+### Layer 1 — Delivery
 
-{{< mermaid >}}
-flowchart TB
-    HUB["Hub VNet<br/>(per customer)"]
-    HUB --> FW["Azure Firewall<br/>+ Firewall Policy"]
-    HUB --> BAS["Azure Bastion"]
-    HUB --> DDOS["DDoS Protection Plan"]
-    HUB --> DNS["Private DNS zones<br/>+ DNS Resolver"]
-    HUB --> GW["VPN / ExpressRoute gateway"]
-    HUB --> AVNM["Azure VNet Manager<br/>(optional, large fleet)"]
-    SPK["Spoke VNets<br/>(per environment)"] -->|peering| HUB
-    SPK --> NSG["NSGs + UDRs"]
-    SPK --> WL["Workload subnets"]
-    NSG -->|force-tunnel| FW
-{{< /mermaid >}}
+#### 1. Azure DevOps (management + security orgs) {#node-ado}
 
-The network plane is per-customer hub-and-spoke, with the hub living in a dedicated connectivity subscription per customer. The hub carries Azure Firewall (with a per-customer firewall policy), Bastion for tenant-side jump access, DDoS Protection Plan, Private DNS zones with a DNS Resolver for hybrid resolution, and a VPN / ExpressRoute gateway when the engagement template enables it.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-ado-light.svg?v=8" alt="Azure DevOps is Layer 1; its two peer, supply-chain-isolated orgs map onto the rest of the layers — a platform management org delivering Layer 4 (platform foundation, Azure Landing Zones) and a platform security org delivering Layers 2/3/5 (security infra + EPAC/AMBA, M365 tenant config, assessments) — each with its own Shared-Resources library (same convention, different content, no sync)." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-ado-dark.svg?v=8" alt="Azure DevOps is Layer 1; its two peer, supply-chain-isolated orgs map onto the rest of the layers — a platform management org delivering Layer 4 (platform foundation, Azure Landing Zones) and a platform security org delivering Layers 2/3/5 (security infra + EPAC/AMBA, M365 tenant config, assessments) — each with its own Shared-Resources library (same convention, different content, no sync)." loading="lazy" decoding="async" />
+</figure>
 
-Spokes — typically one per environment (prod / dev / test / sandbox) — peer to the hub. UDRs on every spoke subnet force-tunnel traffic to the firewall; NSGs scope ingress/egress per subnet; workload subnets host the actual application surfaces.
+Azure DevOps *is* Layer 1 — the delivery substrate — and it splits into **two organizations that map cleanly onto the rest of the layer model**. The **platform management org** delivers **Layer 4, the Azure substrate**: the platform foundation (MG hierarchy, RBAC, resource groups, cost management, and the shared state backend) and landing-zone delivery (per-engagement onboarding plus the hub/spoke network). The **platform security org** delivers **Layers 2, 3, and 5** — security operations, identity, and assurance: the security baseline (security infrastructure, plus the Azure Policy set via EPAC and the AMBA monitoring baseline — which make this org the **policy authority** for the whole Platform MG, both child MGs), M365 tenant configuration (PIM groups, CA baselines, user lifecycle), and assurance (Maester + Zero Trust Assessment). The two are peers, not a delivery org plus a subordinate fork — and the split carries a **cross-org dependency that runs security → management**: the security org configures the tenant-wide identity and policy surface (PIM-eligible groups, Conditional Access, the tenant policy baseline), and the management org's Azure substrate builds on it.
 
-For tenants with a large customer footprint (dozens of hubs to keep peered), Azure Virtual Network Manager automates the peering topology. AVNM is optional — small fleets can manage peering directly. The placement matrix (which resources live in the hub vs. in the spoke vs. in the workload subscription) follows a deterministic rule: shared infrastructure (firewall, bastion, DNS, DDoS, gateways) sits in the hub; per-environment isolation (subnets, NSGs, UDRs, workloads) sits in the spoke.
+Each org carries its **own Shared-Resources repo**, and this is the piece worth stating precisely: they are *not* a synced fork of one library. They share only a **name and a delivery pattern** — every orchestrator pipeline in either org extends the same-shaped stage / step / variable templates from `Shared-Resources/Shared-Resources`, so the two pipelines' *shapes* are identical while their *contents* differ by purpose. The management org's library holds Conditional Access templates, per-engagement configs, an approved-services catalog, and the AVM module set; the security org's holds the KQL detection library, user data, and its own modules. There is **no cross-org sync** — the shared convention unifies the delivery model while the code stays isolated, so a compromise of one org's library can't reach the other's policies or detections. That isolation is the reason the split exists.
 
-*Covered in depth in [L-4 (forthcoming)](/posts/hub-and-spoke-multi-customer/).*
+Within each org the plumbing is identical: repos hold the Terraform roots, PowerShell scripts, YAML pipelines, KQL rules, and policy definitions; orchestrator pipelines compose the Shared-Resources templates; **service connections are workload-identity-federated to an app registration**; variable groups carry non-secret parameters; and the management org publishes Azure Verified Modules through an Artifacts feed for downstream consumption.
 
-### 4. Global Secure Access (GSA)
+Access to the high-privileged (Tier-0) ADO roles follows the same JIT model as the rest of the platform — eligibility via [PIM-for-Groups](#node-pim) rather than standing membership — with one deliberate twist: the approval gate moves *off* PIM activation and *onto* the **pipeline's deployment approval**. The change that matters is delivered by a pipeline run, and the run's environment approval is the control point — so the streamlined, auditable path for an operator is to *change the code and approve the run*, not to activate a high-privileged role and edit by hand. The pipeline run log, not a role-activation record, becomes the change record. ([JIT ADO access via PIM + CA auth contexts](/posts/jit-ado-via-pim-and-ca-auth-contexts/) deep-dives this.)
 
-{{< mermaid >}}
-flowchart TB
-    GSA["Global Secure Access"]
-    GSA --> ACQ["Traffic acquisition<br/>(client tunnel)"]
-    GSA --> SWG["Secure Web Gateway<br/>(internet egress)"]
-    GSA --> ZTNA["Private Access<br/>(replaces VPN)"]
-    GSA --> NWGATE["CA network condition<br/>(referenced by auth-context triple-gates)"]
-{{< /mermaid >}}
+ADO is also the origin of the platform's backup and DR **design**: repos, work items, and pipelines are exported to platform-operator-controlled immutable storage, with an independent replica to an off-Azure Git mirror as a copy outside the cloud.
 
-GSA is Microsoft's identity-centric SSE (Secure Service Edge): traffic acquisition via a client tunnel, a Secure Web Gateway for outbound internet, Private Access as a VPN replacement for on-prem and Azure-private workloads, and — most importantly for this platform — a network identity that Conditional Access can target as a network condition.
+*Covered in depth in [No-PAT ADO agents on ACI](/posts/no-pat-ado-agents/) (runner side), [Supply-chain isolation for security tenants](/posts/supply-chain-isolation-security-org/) (the two-org supply-chain split), [ADO backup & DR](/posts/ado-backup-and-dr/) (backup side).*
 
-GSA's role in the reference platform is the **network gate**. The triple-gate pattern across the auth contexts references a network control; GSA is the natural fit because it gives each session an identity-tied network attribute that CA can evaluate. Tenants without GSA fall back to named locations (IP-range based), which works but ties the network control to physical IP allocation rather than identity.
+#### 2. Azure DevOps runners {#node-runners}
 
-A note on documentation status: GSA isn't yet a first-class component in the canonical architecture references for the reference platform. It's a forward-looking element of the design — instantiated in tenants that have rolled it out, but not yet codified as universal substrate. Slice-posts that touch it will treat it as "design intent" until that codification lands.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-runners-light.svg?v=2" alt="Azure DevOps runners in three flagged zones. Microsoft-hosted (the default managed pool) and self-hosted (an ACI runner that joins the pool via its user-assigned managed identity, no PAT) both feed one shared deployment: the pipeline task presents the app-registration service connection's OIDC token to reach the target environment, carrying least-privilege grants across ARM, Microsoft Graph, and Entra directory — identical on any runner." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-runners-dark.svg?v=2" alt="Azure DevOps runners in three flagged zones. Microsoft-hosted (the default managed pool) and self-hosted (an ACI runner that joins the pool via its user-assigned managed identity, no PAT) both feed one shared deployment: the pipeline task presents the app-registration service connection's OIDC token to reach the target environment, carrying least-privilege grants across ARM, Microsoft Graph, and Entra directory — identical on any runner." loading="lazy" decoding="async" />
+</figure>
 
-*Covered in depth in [I-4 (forthcoming)](/posts/auth-contexts-in-practice/) (notes), with a dedicated GSA-deployment post likely on the longer-term slate.*
+What runs *on* the runner is only compute; the **deployment identity is identical on any runner**. Deployment to the target environment goes through the **app-registration service connection** established in [Azure DevOps](#node-ado): the pipeline **task** — not the runner — presents its OIDC token (the [pipeline path](#access-flow) above), and the runner is just the box the task runs on. Those permissions are **least-privilege by construction and live on the app registration** (the deployment identity, its `client_id` sourced from a **variable group**), never on the runner: the identity holds **exactly what its pipeline needs to touch and no more** — the same rule whether a run writes ARM resources, Microsoft Graph, or Entra directory objects — each grant **scoped as tightly as its plane allows** (a management group rather than the whole tenant · a single application permission rather than a blanket directory grant). Nothing accretes past need: a pipeline that needs a new grant gets it through a **PR that adds it explicitly** — reviewed and declared, not assumed. Even the wide Contributor role that Azure DevOps auto-grants at service-connection creation is stripped as soon as the connection is made — and any instance that slips through is caught downstream by the **Layer 5** assurance sweep. Because the identity and its permissions ride the service connection, not the compute, moving a job between pools changes nothing about what it can reach.
 
-### 5. Azure DevOps (two organizations)
+**Two pools sit behind that one identity:**
 
-{{< mermaid >}}
-flowchart TB
-    ADO["Azure DevOps"]
-    ADO --> MGT["Platform management org ADO<br/>customer Terraform delivery + platform pipeline"]
-    ADO --> SEC["Platform security org ADO<br/>supply-chain-isolated shared-library fork"]
-    MGT --> REPOS["Repos + Pipelines<br/>+ Variable groups + Service connections"]
-    MGT --> ART["Artifacts<br/>(AVM module feed)"]
-    MGT --> BACKUP["Backup chain<br/>Arc-MI → CMK → WORM → Managed HSM → GitLab"]
-    SEC --> FORK["Shared-library fork<br/>(no auto-sync)"]
-{{< /mermaid >}}
+**a) Microsoft-hosted — the default.** The **majority of pipelines run here**: the public Microsoft image, a fast cold start, and no runner infrastructure to build or patch. The constraint is capacity, not identity — a private project's free grant is one parallel job, capped at **60 minutes a run and 1,800 minutes (≈30 hours) a month**; past that, concurrency is bought per parallel job (a flat **~$40/month** each, unlimited minutes), one slot per job running at once.
 
-Azure DevOps is the orchestration substrate, deployed across two ADO organizations by design. The platform management org runs the platform delivery pipeline and Terraform delivery for the platform's tenants. The platform security org holds an independent fork of the shared-library repo (the stage/step templates and helper scripts that the management org's pipelines extend from) — fork rather than sync, so a compromise of the management org can't reach the security org's policies and detections.
+**b) Self-hosted (ACI) — the exception, on two triggers.** First, **confidentiality or sovereignty** — work that must stay on infrastructure the platform controls, not Microsoft's shared image. Second, **cost at volume** — a self-hosted parallel job has no minute cap (one is free, extras **~$15/month**), and on **Azure Container Instances you pay only the underlying per-second compute**, so once a busy platform runs past the 1,800-minute managed ceiling it is both unbounded and cheaper than stacking $40 hosted slots. Its one **delta** from the managed pool is registration — the ACI runner joins the pool **via its User-Assigned Managed Identity** (a short-lived Entra token its `config.sh` takes in place of a PAT), whose only job is authenticating the *runner to Azure DevOps*; it is **not** the deployment identity and takes no part in reaching the target environment.
 
-Repos hold Terraform configs, PowerShell scripts, YAML pipelines, KQL detection rules, and policy definitions. Pipelines orchestrate the deployment; service connections (no PATs — always workload-identity-federated to a UAMI) carry the deployment-time identity; variable groups hold non-secret parameters; an Artifacts feed publishes Azure Verified Modules for downstream consumption.
+*Covered in depth in [No-PAT ADO agents on ACI](/posts/no-pat-ado-agents/) (the runner side across both pools, and the UAMI pool registration).*
 
-The ADO backup chain is the post's most distinctive piece. An Arc-enabled managed identity replicates repos, work items, and pipelines to on-prem GitLab through a chain of customer-managed-key encryption, WORM immutability tiers (30 days / 90 days / 1 year / 7 years per artifact type), and a Managed HSM holding the encryption keys. The pattern is sovereign-data-as-a-feature: the customer's tenant-as-code lives in the customer's authoritative storage, not Microsoft's.
+#### 3. APIs (Graph / PowerShell delivery channel) {#node-apis}
 
-*Covered in depth in [S-1 (forthcoming)](/posts/no-pat-ado-agents/) (agent side), [S-7 (forthcoming)](/posts/ado-backup-sovereign-data/) (backup side).*
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-apis-light.svg?v=3" alt="The config-as-code plan-apply delivery channel spanning Graph, the workload APIs, and the admin APIs: config-as-code for Entra, Intune, Exchange, Teams, SharePoint, Purview, Defender, and admin surfaces like MSCommerce feeds a plan (each API run with -WhatIf, publishing a change report), which clears an approval gate, then an apply writes each object and reads it back via GET to confirm — landing tenant config across Entra, the workload APIs, and the admin APIs." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-apis-dark.svg?v=3" alt="The config-as-code plan-apply delivery channel spanning Graph, the workload APIs, and the admin APIs: config-as-code for Entra, Intune, Exchange, Teams, SharePoint, Purview, Defender, and admin surfaces like MSCommerce feeds a plan (each API run with -WhatIf, publishing a change report), which clears an approval gate, then an apply writes each object and reads it back via GET to confirm — landing tenant config across Entra, the workload APIs, and the admin APIs." loading="lazy" decoding="async" />
+</figure>
 
-### 6. Self-hosted ADO agents (ACI + UAMI + WIF)
+A large part of what the platform governs isn't an Azure resource at all — with no ARM resource provider behind it, ARM can't reach it: Entra settings, PIM role-management policies, Conditional Access baselines, authentication-method policies — and, beyond identity, the M365 workload config across Exchange, Teams, SharePoint, Intune, Purview, and Defender, plus admin surfaces like self-service-purchase (commerce) and partner/CSP. This channel delivers it **as code**, each surface through its own API — Graph for Entra and Intune, the Exchange/Teams/SharePoint/Purview admin APIs through their PowerShell modules, and the Defender-XDR and commerce APIs directly: the declarations live in the repo, and a pipeline run is the only authorized way to change them, so identity, policy, and workload config are governed the same way infrastructure is. The platform already reads **and** writes this as code for Entra, Exchange, Intune, Purview, Defender, and the M365 admin-center; SharePoint and Teams are read/audit-only today, with write to follow.
 
-{{< mermaid >}}
-flowchart TB
-    ACI["Azure Container Instances<br/>(agent host)"]
-    ACI --> UAMI["User-Assigned Managed Identity"]
-    UAMI --> FIC["Federated credentials<br/>(OIDC trust to ADO)"]
-    FIC --> TOK["OIDC token exchange<br/>(no stored secret)"]
-    TOK --> SC["ADO service connection<br/>(workload-identity-federated)"]
-    UAMI --> RBAC["RBAC assignments<br/>(Storage Blob Data Contributor,<br/>Key Vault Crypto User, …)"]
-    ACI --> HIMDS["Arc HIMDS<br/>(for on-prem replication agent)"]
-{{< /mermaid >}}
+Delivery follows a **plan-apply** pattern. A script runs first with `-WhatIf`, publishing a **change report** of exactly what would change; a human clears an **approval gate**; then the script runs for real, and every write is **read back via GET** to confirm it landed. It executes on the platform's [runners](#node-runners), over the same app-registration WIF service connections, orchestrated by the same delivery pipelines — so a config change is reviewed, gated, and audited exactly like any other deployment. The `-WhatIf` plan doubles as a **drift check** — it reads the live objects back and reports the delta from the declared state, so running the very same channel read-only surfaces drift directly: that read-only mode is [audit mode](#node-audit-mode) (node 24) — one channel, two modes, write-then-verify here and read-only-discover there, both assurance. The standalone, continuous read-only monitor is [TCM](#node-utcm) in Layer 5. (The Azure-resource half of delivery is [Terraform](#node-terraform), covered next.)
 
-The self-hosted ADO agent runs on Azure Container Instances and gets its deployment identity from a User-Assigned Managed Identity. The UAMI carries federated credentials trusting Azure DevOps' OIDC issuer — no secrets are stored anywhere in the chain. The agent presents an OIDC token; ADO exchanges it for a service-connection token; the service connection then drives the target-tenant ARM and Graph calls under whatever RBAC and Graph permissions the UAMI carries.
+*Covered in depth in [Plan/apply for PowerShell + Graph](/posts/powershell-graph-plan-apply/).*
 
-The RBAC assignments are scope-minimal: the UAMI gets exactly the roles its pipelines need — Storage Blob Data Contributor for backend state, Key Vault Crypto User for sealing/unsealing, Reader at MG scope for inventory queries — and no more. New pipelines that need additional permissions go through a PR that adds the assignment explicitly.
+#### 4. Terraform delivery {#node-terraform}
 
-For the on-prem replication side of the ADO backup chain (covered above), the same UAMI pattern extends via Azure Arc and the Hybrid Instance Metadata Service (HIMDS): the on-prem replication agent gets an Arc-MI identity that the ADO service connection trusts, exchanging tokens the same way as the cloud-side agent. One identity model, two compute substrates.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-terraform-light.svg?v=8" alt="Terraform delivers the Azure substrate across its real roots — platform foundation (MGs, subscriptions, RBAC, cost), landing-zone vending (per-engagement subscriptions and MGs), network (hub-and-spoke), and the security baseline (security infrastructure and the AMBA monitoring baseline; policy as code — EPAC — is a separate channel); each root has its own locked state and app-registration WIF, and all draw from Azure Verified Modules." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-terraform-dark.svg?v=8" alt="Terraform delivers the Azure substrate across its real roots — platform foundation (MGs, subscriptions, RBAC, cost), landing-zone vending (per-engagement subscriptions and MGs), network (hub-and-spoke), and the security baseline (security infrastructure and the AMBA monitoring baseline; policy as code — EPAC — is a separate channel); each root has its own locked state and app-registration WIF, and all draw from Azure Verified Modules." loading="lazy" decoding="async" />
+</figure>
 
-*Covered in depth in [S-1 (forthcoming)](/posts/no-pat-ado-agents/).*
+Terraform delivers the **Azure substrate** — everything with an ARM resource provider — across **several roots, each with its own state-locked remote backend and its own app-registration WIF service connection** scoped to what it touches. In the [management org](#node-ado): the **platform foundation** root owns the MG hierarchy, subscriptions, cost, and the **Azure RBAC** across the hierarchy — it reads the PIM/RBAC groups the [Graph channel](#node-apis) creates and binds them to management-group roles, holding no Graph-write of its own; **landing-zone vending** provisions the per-engagement subscriptions and MGs (the [delivery pipeline](#node-pipeline) below); and the **network** stacks build the per-engagement hub-and-spoke. In the **security org**, the **security baseline** root delivers the security infrastructure and the AMBA monitoring baseline; the policy set is a separate as-code channel — [EPAC](#node-epac).
 
-### 7. Terraform delivery (three domains)
+On the deployment side, the Terraform provider block names the app registration's `client_id` (sourced from a variable group), the `tenant_id`, and a federated token URL — the same app-registration + WIF model as the [Azure DevOps runners](#node-runners), applied at the Terraform-provider layer.
 
-{{< mermaid >}}
-flowchart TB
-    TF["Terraform delivery"]
-    TF --> IDD["Identity domain<br/>(Entra, RBAC, PIM groups)"]
-    TF --> PLD["Platform domain<br/>(MG hierarchy, hubs, EPAC)"]
-    TF --> WLD["Workload domain<br/>(spokes, app subscriptions)"]
-    IDD --> WIF1["WIF provider block"]
-    PLD --> WIF2["WIF provider block"]
-    WLD --> WIF3["WIF provider block"]
-    WIF1 --> ST["Remote state<br/>(Azure Storage + lock)"]
-    WIF2 --> ST
-    WIF3 --> ST
-    IDD --> AVM["Azure Verified Modules<br/>(terraform-azurerm-*)"]
-    PLD --> AVM
-    WLD --> AVM
-    WLD --> VAR["Variable substitution<br/>CIDR + CA range formulas"]
-{{< /mermaid >}}
+Azure Verified Modules — Microsoft's `terraform-azurerm-*` registry of resource modules — are the building blocks. Custom local modules wrap AVMs where the reference platform needs custom composition (e.g., the per-engagement hub assembly). Variable substitution pulls per-engagement values from the deployment configuration template: the engagement index drives per-engagement subnetting and policy ranges via an index-derived formula, with a fixed capacity ceiling enforced by the formula's arithmetic. Two delivery-side concerns get their own deep-dives: declared-vs-deployed **drift** is caught by a Terraform-output compare — a Layer-1 check, distinct from the Layer-5 assurance tools — and MG-scoped WIF federation carries a known `SubscriptionNotFound` trap.
 
-Terraform delivery is split into three domains. Identity owns Entra objects, RBAC group lifecycle, PIM group provisioning. Platform owns the MG hierarchy, hub networks, and the EPAC initiative assignments. Workload owns the per-customer spokes, application subscriptions, workload-specific resources. Each domain is a separate Terraform root module with its own remote state in Azure Storage (state-locked for concurrent-run safety) and its own WIF provider block bound to a UAMI scoped to that domain's responsibilities.
+*Covered in depth in [Three-domain Terraform with WIF](/posts/three-domain-terraform-wif/), [Cross-tenant WIF for assessment pipelines](/posts/cross-tenant-wif-assessment/), [Terraform declared-vs-deployed compare](/posts/terraform-declared-vs-deployed/) (drift compare), [The MG-scoped WIF SubscriptionNotFound trap](/posts/mg-scope-wif-trap/) (the MG-scope WIF trap).*
 
-Workload-identity federation replaces the SP-secret pattern entirely on the deployment side. The Terraform provider block names the UAMI client_id and tenant_id and a federated token URL; the runtime exchanges the agent's OIDC token for an ARM access token. Same model as Section 6, applied at the Terraform-provider layer.
+#### 5. Template-driven landing-zone onboarding {#node-pipeline}
 
-Azure Verified Modules — Microsoft's `terraform-azurerm-*` registry of resource modules — are the building blocks. Custom local modules wrap AVMs where the reference platform needs custom composition (e.g., the per-customer hub assembly). Variable substitution pulls per-customer values from the deployment configuration template: the customer index drives per-customer subnetting and policy ranges via a customer-index-derived formula, with a fixed arithmetic capacity ceiling enforced by the formula's arithmetic.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-pipeline-light.svg?v=5" alt="L1 delivery: the Engagement Template feeds a JSON Schema that drives the landing-zone onboarding pipeline, fanning out to its sequential stages." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-pipeline-dark.svg?v=5" alt="L1 delivery: the Engagement Template feeds a JSON Schema that drives the landing-zone onboarding pipeline, fanning out to its sequential stages." loading="lazy" decoding="async" />
+</figure>
 
-*Covered in depth in [S-2 (forthcoming)](/posts/three-domain-terraform-wif/), [S-12 (forthcoming)](/posts/cross-tenant-wif-assessment/).*
+The **Engagement Template** is a **per-engagement input, not the platform's own configuration** — one JSON file per engagement (validated against a shared schema) that the onboarding pipeline consumes to stand up **that engagement's landing zone**. A run takes a single engagement code, reads that engagement's JSON, and delivers everything scoped to them: a landing-zone management group created under the platform's Landing-Zones group, the subscriptions vended beneath it, the engagement-scoped RBAC groups, the network, the guest identities, and the Conditional Access policy set. The reference platform itself — the ADO organizations, the Shared-Resources library, and the platform baselines — is delivered separately; the Engagement Template only describes a landing zone to hang off it. It captures the per-engagement inputs an onboarding needs — regions, BCDR, IR ownership, naming, tagging, guest identity, CA policy needs — and every field maps to the stage that consumes it.
 
-### 8. EPAC + AMBA
+The pipeline runs its stages by the flags discovered from that engagement's JSON — deny-by-default, so only the components the JSON defines get deployed. Preflight checks permissions; Bootstrap establishes the Terraform state backends; Validate runs the schema check; config discovery derives the deployment flags (Application Gateway vs. Front Door, whether VPN/ExpressRoute or DDoS is enabled, and so on) and verifies them against live Azure; the **Entra-provisioning** stage creates the engagement's Entra objects (RBAC groups, named location, authentication strength, terms-of-use, guest admin unit); a **state-persistence** step saves the enriched JSON — now carrying the new Entra object IDs — for downstream stages; **CA preparation** generates that engagement's Conditional Access policy set from the templates; **subscription vending** runs the Terraform `lz-vending` module to create the engagement's landing-zone MG and its hub/spoke subscriptions; the **hub** and **spoke** stages deploy the network plane; **App Gateway or Front Door** (mutually exclusive, by the engagement's firewall pattern) deploys the WAF edge; **DevOps setup** creates the slice owner's ADO project; **guest onboarding** runs the B2B invitations; and a **report** stage emits the deployment summary and RBAC audit.
 
-{{< mermaid >}}
-flowchart TB
-    EPAC["EPAC<br/>(Enterprise Policy as Code)"]
-    EPAC --> DEFS["Policy definitions<br/>(custom + built-in)"]
-    EPAC --> INIT["Initiatives<br/>(grouped definitions)"]
-    EPAC --> ASGN["Assignments<br/>(scope + parameters + exemptions)"]
-    ASGN --> DINE["DINE / Modify<br/>auto-remediation"]
-    ASGN --> DUAL["Dual EPAC<br/>scheduled every 6h + notScopes"]
-    AMBA["AMBA-ALZ alerts"] --> ACT["Action Groups"]
-    ACT --> ROUTE["Alert routing<br/>(on-call channels)"]
-    DINE --> AMBA
-{{< /mermaid >}}
+*Covered in depth in a dedicated delivery-pipeline post (forthcoming, slot in the per-category list — likely 2026 H2); the plan/apply discipline for the PowerShell-Graph stages (Entra provisioning, CA preparation) is [Plan/apply for PowerShell + Graph](/posts/powershell-graph-plan-apply/).*
 
-Enterprise Policy as Code (EPAC) is the policy-as-code wrapper around Azure Policy: definitions, initiatives, assignments, and exemptions all version-controlled, deployed by a pipeline that runs `Build-DeploymentPlans` to produce a policy-plan and a roles-plan, then applies them. The dual-EPAC pattern is the tamper-resistance mechanism: a scheduled run every six hours re-asserts the desired state; the policy-management identity is itself restricted via `notScopes` RBAC so even an admin who can compromise the runtime can't disable the schedule.
+#### 6. EPAC + AMBA {#node-epac}
 
-AMBA-ALZ (Azure Monitor Baseline Alerts for Azure Landing Zones) layers a curated alert baseline on top: pre-built metric and log-search alerts for the platform-management resources (compute, storage, key vaults, network, IAM events). Action Groups route firing alerts to on-call channels — Teams, email, ITSM webhooks — based on severity and tag-derived ownership.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-epac-light.svg?v=8" alt="EPAC decomposed into policy definitions, initiatives, and assignments; assignments branch to DINE/Modify auto-remediation and the dual-EPAC scheduled re-assert, and DINE cascades to AMBA-ALZ alerts routed through Action Groups to on-call channels." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-epac-dark.svg?v=8" alt="EPAC decomposed into policy definitions, initiatives, and assignments; assignments branch to DINE/Modify auto-remediation and the dual-EPAC scheduled re-assert, and DINE cascades to AMBA-ALZ alerts routed through Action Groups to on-call channels." loading="lazy" decoding="async" />
+</figure>
 
-The DINE (Deploy If Not Exists) and Modify policies are the platform's continuous-enforcement substrate. They cascade from MG scope down to subscriptions — diagnostic settings get auto-deployed to every new resource, Defender plans auto-enabled at subscription create, the AMBA alert pack auto-instantiated. Drift detection on the policy side closes the loop: anything that drifts from the EPAC desired state is re-applied within six hours.
+Enterprise Policy as Code (EPAC) is the policy-as-code wrapper around Azure Policy: definitions, initiatives, and assignments all version-controlled, deployed by a pipeline that runs `Build-DeploymentPlans` to produce a policy-plan and a roles-plan, then applies them. The default set every landing zone inherits from the root is deliberately compact: a **security-baseline** initiative (Defender-plan DINEs, activity-log diagnostics, Network Watcher), **resource-hardening** (TLS/HTTPS enforcement, private endpoints, encryption at rest — MCSB- and CIS-derived controls), **tag-governance** (mandatory tags — Deny on create, Modify to inherit), and an **allowed-locations** guard; below the root, per-archetype resource-type allowlists tighten each branch — rolled out **audit-first, flipping to Deny once compliance data validates them** — down to a deny-everything set on the decommissioned one. The dual-EPAC pattern is the tamper-resistance mechanism: **two instances split the hierarchy** — the management org's governs the root, the security org's governs the platform subtree with **full desired state**, so any assignment that appears there outside its code is deleted on the next run — and a scheduled sweep re-asserts that state **every six hours**. The policy identity's rights at that scope are deliberately **not managed by any pipeline**: a Global Administrator grants them by hand, so they live in no repo and no Terraform state, and no plan/apply anywhere can quietly reconcile them away. A compromised peer-org pipeline can't revoke them **through its own code path** — removal would take an explicit out-of-band call, and the **preflight permission check** flags exactly that before the next run deploys anything.
 
-*Covered in depth in [S-13 (forthcoming)](/posts/dual-epac-tamper-proof/).*
+AMBA-ALZ (Azure Monitor Baseline Alerts for Azure Landing Zones) layers a curated alert baseline on top: pre-built metric and log-search alerts across the estate — compute, storage, key management, load balancing, network changes, service health. Action Groups route firing alerts to the platform's on-call channel, and a **MonitorDisable** tag opts individual resources out of the baseline.
 
-### 9. Engagement Template + platform delivery pipeline
+The DINE (Deploy If Not Exists) and Modify policies are the platform's continuous-enforcement substrate. They cascade from MG scope down to subscriptions — activity-log diagnostics auto-deployed to every new subscription, Defender plans auto-enabled at subscription create, the AMBA alert pack auto-instantiated. Drift detection on the policy side closes the loop: on the security-governed subtree, anything that drifts from the EPAC desired state is re-applied within six hours.
 
-{{< mermaid >}}
-flowchart TB
-    ET["Engagement Template"]
-    ET --> DOCX["DOCX<br/>(customer-facing)"]
-    ET --> JSON["JSON Schema<br/>(pipeline-consumed)"]
-    JSON --> PIPE["Platform delivery pipeline<br/>multi-stage"]
-    PIPE --> S1["Preflight / Bootstrap / Validate"]
-    PIPE --> S2["ConfigDiscover<br/>(derive deployment flags)"]
-    PIPE --> S3["EntraProvision / BlobPersist / CAPrepare"]
-    PIPE --> S4["SubscriptionVend / HubCore / SpokeNetworks"]
-    PIPE --> S5["AppGateway or FrontDoor<br/>(mutex)"]
-    PIPE --> S6["DevOpsSetup / GuestOnboard / Report"]
-{{< /mermaid >}}
+*Covered in depth in [Dual EPAC at MG scope](/posts/dual-epac-tamper-proof/).*
 
-The Engagement Template is the reference platform's deployment configuration template. The DOCX side is the document a customer engagement workshop fills out — sections on regions, BCDR, IR ownership, naming, tagging, guest identity, CA policy needs. The JSON Schema side is the structured representation the platform delivery pipeline reads. Every field in the DOCX maps to a JSON path; an appendix table holds the traceability between document section and pipeline stage that consumes it.
+#### 7. Subscription Vending {#node-vending}
 
-The platform delivery pipeline runs through multiple stages depending on the deployment configuration template's flags. Preflight checks permissions; Bootstrap establishes Terraform state backends; Validate runs the schema check; ConfigDiscover derives deployment flags (whether to deploy Application Gateway vs. Front Door, whether VPN/ExpressRoute is enabled, etc.); EntraProvision creates the Entra objects (RBAC groups, named location, authentication strength, terms-of-use, guest admin unit); BlobPersist saves the enriched JSON (with Entra object IDs) for downstream stages; CAPrepare generates Conditional Access policy JSONs from the template; SubscriptionVend runs the Terraform `lz-vending` module; HubCoreNetwork and SpokeNetworks deploy the network plane; AppGateway or FrontDoor (mutually exclusive based on `firewall_pattern`) deploys the WAF edge; DevOpsSetup creates the customer's ADO project; GuestOnboard runs B2B invitations; Report emits a deployment summary and RBAC audit.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-vending-light.svg?v=5" alt="Subscription vending: one vending run creates the subscription, the MG-scope RBAC binding, and the spoke VNet — dropping them into standing governance that predates the vend: the engagement MG, the policy set inherited from the MGs above, the PIM-eligible RBAC groups from Entra provisioning, and the hub network." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-vending-dark.svg?v=5" alt="Subscription vending: one vending run creates the subscription, the MG-scope RBAC binding, and the spoke VNet — dropping them into standing governance that predates the vend: the engagement MG, the policy set inherited from the MGs above, the PIM-eligible RBAC groups from Entra provisioning, and the hub network." loading="lazy" decoding="async" />
+</figure>
 
-The customer index is the lynchpin. From the deployment configuration template, the pipeline derives the per-customer subnet allocation and CA policy range via a customer-index-derived formula, the RBAC group naming (per the convention shown in the slice-post for naming), and the Guest-Lifecycle Administrative Unit name. One index, multiple derived values; the formula carries a fixed arithmetic capacity ceiling per platform instance.
+The `lz-vending` Terraform module creates the per-engagement subscriptions inline with the [delivery pipeline](#node-pipeline): one run creates the subscription under the billing scope and places it under that engagement's landing-zone MG. Nothing else needs to be applied to it — the **policy set is already standing at the MGs above** (DINE enforcement reaches the subscription by inheritance the moment it lands), and the engagement's **PIM-eligible RBAC groups already exist** — the Entra-provisioning stage created them earlier in the same run, and the vend binds them at the engagement MG, inheriting down. There is no race between "subscription exists" and "access is governed": governance precedes the subscription rather than chasing it.
 
-*Covered in depth in a dedicated delivery-pipeline post (forthcoming, slot in the per-category list — likely 2026 H2).*
+Vending is the seam where Layer 1 (the pipeline) first writes Layer 4 (the MG hierarchy the new subscription lands in). Because the groups are eligible from the moment the subscription exists, the substrate is never briefly ungoverned — the property that lets the Identity layer make its standing-zero-access claim hold from creation onward.
 
-### 10. UTCM
+*Covered in depth in [Subscription vending design](/posts/subscription-vending-design/).*
 
-{{< mermaid >}}
-flowchart TB
-    UTCM["UTCM<br/>Unified Tenant Configuration Management"]
-    UTCM --> WL["5 workloads"]
-    WL --> ENT["Entra ID"]
-    WL --> DXDR2["Defender XDR"]
-    WL --> EXO["Exchange Online"]
-    WL --> INT["Intune"]
-    WL --> PUR["Purview"]
-    UTCM --> RES["70+ resource types"]
-    UTCM --> MON["configurationMonitor<br/>30 monitors/tenant<br/>800 resources/day<br/>6h drift cycle"]
-    UTCM --> PRIO["5-priority tooling matrix:<br/>UTCM strategic → TF AVM → Graph → community → M365DSC"]
-{{< /mermaid >}}
+#### 8. Compliance Framework Mapping {#node-compliance}
 
-UTCM (Unified Tenant Configuration Management) is Microsoft's strategic API surface for M365 tenant configuration-as-code. It covers five workloads — Entra ID, Defender XDR, Exchange Online, Intune, and Purview — across roughly seventy resource types. The `configurationMonitor` API watches deployed state and emits drift signals on a six-hour cycle, scoped to a quota of thirty monitors per tenant and eight hundred resources per day, with seven-day drift retention.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-compliance-light.svg?v=1" alt="Compliance framework mapping as the bridge between two policy sets: EPAC's custom initiatives enforce (policy as code), the version-controlled mapping ties control areas to framework controls, and the built-in regulatory initiatives attest — populating the Defender for Cloud compliance dashboard, with the engagement template declaring each engagement's additional framework set." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-compliance-dark.svg?v=1" alt="Compliance framework mapping as the bridge between two policy sets: EPAC's custom initiatives enforce (policy as code), the version-controlled mapping ties control areas to framework controls, and the built-in regulatory initiatives attest — populating the Defender for Cloud compliance dashboard, with the engagement template declaring each engagement's additional framework set." loading="lazy" decoding="async" />
+</figure>
 
-UTCM is preview at the time of writing and not yet covering every M365 surface that the platform needs to govern. The platform's tooling matrix runs at five priority levels: UTCM is the strategic primary where coverage exists; Terraform with AVM modules handles Azure-side IaC; Microsoft Graph + PowerShell SDK fills the gaps where UTCM is still read-only; community frameworks (EntraOps for principal classification, EPAC for policy-as-code) cover gaps the Microsoft-supplied tools don't; M365DSC is kept as a backup / compliance-snapshot tool only — no longer primary deploy.
+A version-controlled mapping between the platform's control areas and a broad set of regulatory frameworks: CIS, ISO 27001, SOC 2, NIS2, PCI DSS, GDPR, NIST 800-53, HITRUST, CMMC, DORA, EU AI Act, and more. The mapping is **documentation-as-code** — the attestation story that ships with the platform. The Defender for Cloud regulatory dashboard itself is fed by **built-in regulatory policy initiatives** assigned at MG scope. Five of those standards are the **platform-wide default**, standing at the root MG: **MCSB** arrives automatically with the Defender plans, and the baseline pins **CIS, ISO 27001, SOC 2, and NIS2** alongside it. The rest of the list above — PCI DSS through the EU AI Act — is **per-engagement**, declared in the Engagement Template. The policy engine's full-desired-state sweep carries an explicit **carve-out for Defender-managed assignments**, so enabled standards survive it.
 
-What UTCM doesn't yet cover: portal-only settings (idle session timeout, group creation controls, Copilot data-access scope), Teams meeting/messaging policies (partial support), audit log search permissions (no automation — manual role assignment), and self-service purchases (limited automation via `MSCommerce` PowerShell). Each of these is on the gap list for slice-posts to deep-dive.
+It is the bridge between Layer 1 (policy-as-code) and Layer 2 (Defender for Cloud's posture view) — with the honest caveat that enforcement and attestation are **two different policy sets**: [EPAC](#node-epac)'s custom initiatives enforce, the built-in regulatory initiatives attest. The mapping ties them together control area by control area, and keeping the two aligned is an explicit governance task; folding the regulatory initiatives into EPAC itself — driven per engagement from the template's framework list — is the step that closes the loop.
 
-*Covered in depth in [S-9 (forthcoming)](/posts/utcm-concept-and-primitives/), [S-10 (forthcoming)](/posts/utcm-drift-detection-at-scale/), [S-11 (forthcoming)](/posts/utcm-vs-m365dsc-vs-epac/).*
+*Covered in depth in [Compliance framework mapping in Defender for Cloud](/posts/compliance-framework-mapping-dfc/).*
 
-### 11. Defender XDR Unified RBAC
+### Layer 2 — Security operations
 
-{{< mermaid >}}
-flowchart TB
-    DXDR["Defender XDR"]
-    DXDR --> URBAC["Unified RBAC<br/>(group-based role assignments)"]
-    URBAC --> SECG["Security groups<br/>(role-assignable)"]
-    SECG --> P4G2["PIM-for-Groups<br/>(JIT activation governance)"]
-    DXDR --> MPM["Defender portal<br/>(multi-tenant management)"]
-    DXDR --> MIG["Sentinel-in-Defender migration<br/>(March 2027 deadline)"]
-{{< /mermaid >}}
+#### 9. Defender XDR {#node-dxdr}
 
-Defender XDR Unified RBAC is Microsoft's consolidated role model across Defender for Endpoint, Defender for Identity, Defender for Cloud Apps, Defender for Office 365, and Microsoft Sentinel. Roles are assigned to security groups rather than directly to users; PIM-for-Groups (covered in node 1) governs the JIT activation of those group memberships, so a SOC analyst with eligible membership in `Defender-IR-Tier2` only carries the role when they activate.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-dxdr-light.svg?v=12" alt="Defender XDR as one platform — one incident queue, one hunting surface — containing its ten workload modules (Defender for Endpoint, Identity, Cloud Apps, Office 365, Vulnerability Management, Threat Intelligence, Security Exposure Management, Security for AI, Defender for Cloud, Microsoft Sentinel), each with its icon, fanning into four facets: Unified RBAC (one role model, roles on role-assignable security groups governed by PIM-for-Groups), the multi-tenant Defender portal, the Sentinel-in-Defender migration with the Azure-portal retirement on March 31, 2027, and the MDC-in-Defender convergence where the Azure portal stays." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-dxdr-dark.svg?v=12" alt="Defender XDR as one platform — one incident queue, one hunting surface — containing its ten workload modules (Defender for Endpoint, Identity, Cloud Apps, Office 365, Vulnerability Management, Threat Intelligence, Security Exposure Management, Security for AI, Defender for Cloud, Microsoft Sentinel), each with its icon, fanning into four facets: Unified RBAC (one role model, roles on role-assignable security groups governed by PIM-for-Groups), the multi-tenant Defender portal, the Sentinel-in-Defender migration with the Azure-portal retirement on March 31, 2027, and the MDC-in-Defender convergence where the Azure portal stays." loading="lazy" decoding="async" />
+</figure>
 
-The Defender portal multi-tenant management surface is the SOC operator's console — a single pane that pulls signals across all customer tenants. Combined with Workspace Manager-distributed content (analytics rules, hunting queries, workbooks), one SOC team can operate detection-and-response across the full customer fleet without each operator needing a per-customer login.
+Defender XDR is the **unified security-operations platform**: Defender for Endpoint, Defender for Identity, Defender for Cloud Apps, Defender for Office 365, Defender Vulnerability Management, Defender Threat Intelligence, Security Exposure Management, **Security for AI** (AI posture and Defender for AI Services alerts, centralized in the portal), Defender for Cloud, and Microsoft Sentinel converge in one portal — one incident queue, one advanced-hunting surface, signals correlated across all of them. Its access model is **Unified RBAC**: one role model across the workloads, since 2025 the **default** for new Defender tenants. Sentinel joins **per workspace**, with assignments syncing back to Azure RBAC; service principals and GDAP groups stay Azure-side — the caveat that matters most to an MSSP. Roles are assigned to security groups rather than directly to users; [PIM-for-Groups](#node-pim) governs the JIT activation of those group memberships, so a SOC analyst with eligible membership in `Defender-IR-Tier2` only carries the role when they activate.
 
-The March 2027 Defender portal migration deadline — Sentinel-in-Azure-portal retires; everything routes through the unified Defender experience — is the time-pressure factor in this node. Slice-post O-9 covers what the migration changes for Sentinel-as-code and the `EyesOn` onboarding pattern.
+The Defender portal multi-tenant management surface is the SOC operator's console — a single pane that pulls signals across all managed tenants. Combined with detection content distributed as code from the shared library (analytics rules, hunting queries, workbooks), one SOC team can operate detection-and-response across the full managed fleet without each operator needing a per-engagement login.
 
-*Covered in depth in [O-9 (forthcoming)](/posts/defender-portal-migration-march-2027/).*
+The **March 31, 2027** migration deadline — already extended once, from July 2026 — is the time-pressure factor in this node: Sentinel in the Azure portal retires, and everything routes through the unified Defender experience. [Defender for Cloud](#node-dfc) is making the same move — its posture experience converged into the Defender portal (GA since May 2026) — but **without a retirement date**: the Azure-portal experience stays side by side, and onboarding and configuration still live there. A dedicated deep-dive covers what the migration changes for Sentinel-as-code and the `EyesOn` onboarding pattern.
 
-### 12. Microsoft Sentinel (+ Workspace Manager + Data Lake)
+*Covered in depth in [Defender portal migration](/posts/defender-portal-migration-march-2027/).*
 
-{{< mermaid >}}
-flowchart TB
-    SENT2["Microsoft Sentinel<br/>(Tier 2 central security workspace)"]
-    SENT2 --> CONN["Data connectors<br/>(Defender / Azure AD / Activity / custom CEF)"]
-    SENT2 --> AR["Analytic rules<br/>(KQL from shared-library repo)"]
-    SENT2 --> AUTO["Automation rules<br/>(grouping + auto-remediation)"]
-    SENT2 --> WL2["Watchlists<br/>(e.g., RoleAssignableGroups)"]
-    SENT2 --> WB["Workbooks + incidents"]
-    SENT2 --> WM["Workspace Manager<br/>(parent → member, one-way push)"]
-    WM --> MEMB["Per-customer Tier 1 workspaces"]
-    SENT2 --> DL["Sentinel Data Lake<br/>(Tier 3, up to 12yr retention)"]
-{{< /mermaid >}}
+#### 10. Microsoft Sentinel (+ Data Lake) {#node-sentinel}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-sentinel-light.svg?v=6" alt="Microsoft Sentinel (Tier 2) fanning into data connectors, analytic rules as code, automation rules, watchlists, and workbooks; content distributed as code from the repository reaches the per-engagement Tier 1 member workspaces, and the Tier 3 Sentinel Data Lake carries graphs, federation, and up to 12-year retention." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-sentinel-dark.svg?v=6" alt="Microsoft Sentinel (Tier 2) fanning into data connectors, analytic rules as code, automation rules, watchlists, and workbooks; content distributed as code from the repository reaches the per-engagement Tier 1 member workspaces, and the Tier 3 Sentinel Data Lake carries graphs, federation, and up to 12-year retention." loading="lazy" decoding="async" />
+</figure>
 
 Sentinel is the reference platform's central security analytics workspace, deployed at Tier 2 of the three-tier logging architecture (Tier 1 = per-LZ workspaces; Tier 3 = Data Lake). Data connectors pull from Defender, Entra ID, Azure Activity, custom CEF/Syslog, and platform-specific feeds (PIM operations, ADO audit events). Analytics rules — KQL definitions held in the shared-library repo, version-controlled, code-reviewed — fire on the ingested signals.
 
 Watchlists hold reference data the rules need at query time — the canonical example is `RoleAssignableGroups`, a watchlist refreshed by a scheduled Graph query that lists every group with `isAssignableToRole = true`. Rules join against the watchlist to anchor membership-change detection on the right group set without name-pattern guessing.
 
-Workspace Manager is what makes the multi-customer SOC pattern work without log-visibility bleed. Central Sentinel acts as the manager parent and pushes content — analytics rules, hunting queries, workbooks, playbooks — one-way down to per-customer member workspaces. Customer logs stay in the per-customer workspace; SOC operators query across them via Defender XDR multi-tenant management. The Data Lake (Tier 3) holds long-tail logs in cheaper-storage tiers, queryable on-demand with retention up to twelve years for compliance evidence.
+The multi-engagement SOC pattern — every engagement's logs stay in its own workspace, one SOC operates across all of them — is carried by **content distributed as code**. The shared library's detection content (analytics rules, hunting queries, workbooks, automation) deploys per workspace through the same repository-driven CI/CD that delivers everything else — the pattern Microsoft designates as the successor to the preview-era Workspace Manager for multi-workspace distribution. **The platform already operates Sentinel in the Defender portal**, well ahead of the [March 2027 transition](#node-dxdr): the SOC console is the unified portal — one **primary** plus multiple **secondary** workspaces per tenant, with no onboarding cap — and cross-tenant operator access is built on **Entra B2B**, the model the Defender portal supports for MSSP access.
 
-*Covered in depth in [O-1 (forthcoming)](/posts/sentinel-hunting-pim-activations/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization/), [O-10 (forthcoming)](/posts/workspace-manager-sentinel-per-customer/).*
+The **Data Lake** (Tier 3) holds long-tail logs in cheaper-storage tiers, queryable on demand with retention up to twelve years for compliance evidence — and it has grown past cold storage: KQL and notebook exploration directly on the lake, permissions integrated with [Unified RBAC](#node-dxdr), **Sentinel graph** analytics over lake data, and **data federation** that queries external stores (Databricks, ADLS, Fabric) without duplicating them — with billing shifting to simplified and commitment tiers.
 
-### 13. Defender for Cloud
+*Covered in depth in [Sentinel hunting for PIM activations](/posts/sentinel-hunting-pim-activations/), [Sentinel cost optimisation](/posts/sentinel-cost-optimization/), [Workspace Manager: Sentinel per org](/posts/workspace-manager-sentinel-per-org/).*
 
-{{< mermaid >}}
-flowchart TB
-    DFC2["Defender for Cloud"]
-    DFC2 --> MCSB["MCSB v2 baseline"]
-    DFC2 --> REG["~12 compliance frameworks"]
-    REG --> R1["CIS / ISO 27001 / SOC 2"]
-    REG --> R2["NIS2 / PCI DSS / GDPR"]
-    REG --> R3["NIST 800-53 / HITRUST / CMMC"]
-    REG --> R4["DORA / EU AI Act / NIST CSF"]
-    DFC2 --> DASH["Regulatory compliance dashboard"]
-    DFC2 --> PLAN["Defender plans<br/>(Servers / Storage / SQL / Containers / …)"]
-    PLAN -.->|DINE-deployed| MG2["MG hierarchy"]
-{{< /mermaid >}}
+#### 11. Defender for Cloud {#node-dfc}
 
-Defender for Cloud sits alongside Sentinel and covers the compliance posture side. The baseline is the Microsoft Cloud Security Benchmark v2 — a control catalog mapped to common standards. On top of MCSB, the platform layers around twelve regulatory standards: CIS, ISO 27001, SOC 2, NIS2, PCI DSS, GDPR, NIST 800-53, HITRUST, CMMC, DORA, EU AI Act, NIST CSF. Each is selectable per customer based on the engagement template; the regulatory compliance dashboard surfaces the gap analysis for any of them.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-dfc-light.svg?v=3" alt="Defender for Cloud fanning into the five-standard platform baseline (MCSB v2, CIS, ISO 27001, SOC 2, NIS2), per-engagement frameworks from the mapping menu, and the Defender plans; baseline and frameworks feed the compliance dashboard's gap analysis, and the plans are DINE-deployed to the MG hierarchy so every new subscription inherits them." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-dfc-dark.svg?v=3" alt="Defender for Cloud fanning into the five-standard platform baseline (MCSB v2, CIS, ISO 27001, SOC 2, NIS2), per-engagement frameworks from the mapping menu, and the Defender plans; baseline and frameworks feed the compliance dashboard's gap analysis, and the plans are DINE-deployed to the MG hierarchy so every new subscription inherits them." loading="lazy" decoding="async" />
+</figure>
 
-The Defender plans — Defender for Servers, Storage, SQL, Containers, Kubernetes, etc. — get DINE-deployed at MG scope. New subscriptions inherit the plan set automatically; new resources within those subscriptions get assessment coverage on creation. The customer-specific compliance frameworks layer on top of this auto-applied posture.
+Defender for Cloud sits alongside Sentinel and covers the compliance posture side. The **platform baseline spans five standards**: the Microsoft Cloud Security Benchmark v2 — the control catalog that arrives by default with the Defender plans — pinned alongside **CIS, ISO 27001, SOC 2, and NIS2** at the root MG. Each engagement layers its additional frameworks on top, declared in the Engagement Template from the menu enumerated in [Compliance Framework Mapping](#node-compliance); the regulatory compliance dashboard surfaces the gap analysis for any of them. Like Sentinel, DfC has **converged into the [Defender portal](#node-dxdr)** — and that is where its new capabilities land exclusively: the **risk-based Cloud secure score**, the granular individual-findings recommendation model (the old grouped model is already being retired from the Azure portal), posture folded into **Exposure Management** — attack paths and vulnerabilities correlated with devices, identities, SaaS apps, and data — a cross-cloud asset inventory, and **cloud scopes**, which let SOC personas see security content through Unified RBAC **without holding Azure resource permissions**. The Azure-portal side has no retirement date: it stays side by side as the surface where environments are onboarded and configured — the write side, while the Defender portal is where the SOC operates.
 
-*Covered in depth in [O-2 (forthcoming)](/posts/defender-for-cloud-mg-scope/), [O-7 (forthcoming)](/posts/compliance-framework-mapping-dfc/).*
+The Defender plans — Defender for Servers, Storage, Key Vault, Resource Manager, and further plans per workload need — get **DINE-deployed at MG scope**. New subscriptions inherit the plan set automatically; new resources within those subscriptions get assessment coverage on creation. The engagement-specific compliance frameworks layer on top of this auto-applied posture.
 
-### 14. MG hierarchy
+*Covered in depth in [Defender for Cloud at MG scope](/posts/defender-for-cloud-mg-scope/), [Compliance framework mapping in Defender for Cloud](/posts/compliance-framework-mapping-dfc/).*
 
-{{< mermaid >}}
-flowchart TB
-    TRG["Tenant Root Group"]
-    TRG --> INT["Intermediate root<br/>(platform-level policy base)"]
-    INT --> PLAT["Platform MGs"]
-    PLAT --> MNG["Management MG"]
-    PLAT --> SEC2["Security MG"]
-    PLAT --> CON["Connectivity MG"]
-    INT --> LZ["Landing Zones MG"]
-    LZ --> CUST["Per-customer MGs"]
-    INT --> SAND["Sandbox MG"]
-    INT --> DEC["Decommissioned MG"]
-    INT --> CONF["Confidential Isolated MG<br/>(L3 sovereign policies)"]
-    INT -->|policy inheritance| TRG
-    LZ -->|cross-tenant| LH["Azure Lighthouse<br/>(customer-owned tenants)"]
-{{< /mermaid >}}
+#### 12. Three-tier logging {#node-logging}
 
-The Management Group hierarchy is the organisational substrate that every other plane lands on. Below the Tenant Root Group, an intermediate root carries the platform-level policy base. Platform MGs (Management, Security, Connectivity) host shared services. Landing Zones MG is the parent of per-customer MGs — one branch per customer, with the customer's connectivity hub, application subscriptions, and identity scoping all nested below. Sandbox MG holds relaxed policies for experimentation; Decommissioned MG holds soft-deleted subscriptions during the off-boarding cool-down.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-logging-light.svg?v=6" alt="Three-tier logging chain: DINE-deployed diagnostic settings feed the Tier 1 per-LZ workspaces (30-90 days hot), security signals flow up to the Tier 2 central Sentinel workspace (90 days hot, then the Data Lake), and Tier 2 data mirrors to the Tier 3 Data Lake (up to 12 years); cross-workspace queries reach back from Tier 2 into Tier 1, and on-demand promotion returns Tier 3 data to Tier 2." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-logging-dark.svg?v=6" alt="Three-tier logging chain: DINE-deployed diagnostic settings feed the Tier 1 per-LZ workspaces (30-90 days hot), security signals flow up to the Tier 2 central Sentinel workspace (90 days hot, then the Data Lake), and Tier 2 data mirrors to the Tier 3 Data Lake (up to 12 years); cross-workspace queries reach back from Tier 2 into Tier 1, and on-demand promotion returns Tier 3 data to Tier 2." loading="lazy" decoding="async" />
+</figure>
 
-The fourth top-level branch is Confidential Isolated MG — a separate MG (not a subtree of Platform or Landing Zones) for L3 sovereign workloads that demand confidential compute, encryption in use, and a separate policy lineage. It's its own tier in the hierarchy, not a customer-LZ sub-branch.
+The three-tier logging architecture splits log-data ownership by retention need and query frequency. Tier 1 is the per-Landing-Zone Log Analytics workspace — 30–90-day retention, hot tier, scoped to the engagement's own LZ. Tier 2 is the central security workspace where Sentinel runs — **90 days hot**, Sentinel's included analytics retention: full KQL, analytics rules, and hunting at no retention charge. Nothing lingers in the workspace beyond that window; long retention is the lake's job. Tier 3 is the Sentinel Data Lake — analytics-tier data **mirrors into the lake by default**, and lake retention extends up to **twelve years** at cold-storage cost; when an audit or investigation needs the long tail, **KQL jobs promote** the relevant slice back into Tier 2. And the lake carries more than Sentinel tables: **Defender XDR advanced-hunting tables** tier the same way — mirrored into the lake past their default window, or ingested **lake-only** where real-time analytics isn't needed — all managed from the Defender portal's table settings, one retention surface for SIEM and XDR data alike.
 
-For customer-owned tenants (where the customer keeps their tenant root but delegates platform management to the platform operator), Azure Lighthouse provides cross-tenant resource management. Lighthouse projects an operator-side identity (group + delegation manifest) into the customer tenant; the operator can operate the customer's resources without per-customer logins, while RBAC scoping limits what the projected identity can do.
+DINE-deployed diagnostic settings feed Tier 1 — the activity-log baseline lands at subscription create, per-resource categories follow the monitoring baseline; Sentinel connectors aggregate security-relevant signals up into Tier 2; Tier 2's tables mirror into Tier 3 by default, where retention runs past the 90-day analytics window. Cross-workspace queries from Tier 2 back into Tier 1 are supported at two depths: ad-hoc hunting joins up to a **hundred** workspaces, while **scheduled analytics rules cap at twenty workspaces per query, with five or fewer the performance sweet spot** — and alerts raised by a cross-workspace rule exist only in the workspace that defines it, so incidents centralize in Tier 2 by construction, without copying the data.
 
-*Covered in depth in [L-1 (forthcoming)](/posts/mg-hierarchy-multi-customer/), [L-7 (forthcoming)](/posts/multi-region-without-region-mgs/).*
+The architectural payoff is delegation without bleed: each engagement's logs live in the engagement's own Tier 1 workspace; the SOC reads Tier 2 (their content + the per-engagement Tier 1 references); audit/forensic promotions from Tier 3 land in the central workspace without exposing other engagements' logs.
 
-### 15. Three-tier logging
+*Covered in depth in [Three-tier logging architecture](/posts/three-tier-logging-architecture/), [Sentinel cost optimisation](/posts/sentinel-cost-optimization/).*
 
-{{< mermaid >}}
-flowchart TB
-    T1["Tier 1<br/>per-LZ Log Analytics<br/>(30–90 days)"]
-    T2["Tier 2<br/>central security workspace<br/>(90d hot + 2yr interactive + 7yr queryable)"]
-    T3["Tier 3<br/>Sentinel Data Lake<br/>(up to 12 years)"]
-    SRC["Diagnostic settings<br/>(DINE-deployed from MG hierarchy)"] --> T1
-    T1 -->|security signals| T2
-    T2 -->|long-tail| T3
-    T2 -->|cross-workspace queries<br/>max 20, recommended ≤5| T1
-    T3 -.->|on-demand restore| T2
-{{< /mermaid >}}
+### Layer 3 — Identity & Access
 
-The three-tier logging architecture splits log-data ownership by retention need and query frequency. Tier 1 is the per-Landing-Zone Log Analytics workspace — 30–90-day retention, hot tier, scoped to the customer's own LZ. Tier 2 is the central security workspace where Sentinel runs — 90 days hot, two years interactive, seven years queryable in the basic-logs tier. Tier 3 is the Sentinel Data Lake — colder storage, retention up to twelve years, on-demand restore to Tier 2 when an audit or investigation needs the long tail.
+#### 13. Authentication Methods policy {#node-auth-methods}
 
-DINE-deployed diagnostic settings push signals from every resource into Tier 1; Sentinel connectors aggregate security-relevant signals up into Tier 2; Tier 2 archives long-tail signals into Tier 3. Cross-workspace queries from Tier 2 back into Tier 1 are supported (Sentinel's own queries can join across workspaces) but rate-limited — Microsoft's recommendation caps the number of joined workspaces at twenty in any single query, with five or fewer being the operational sweet spot for performance.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-authmethods-light.svg?v=2" alt="Authentication Methods policy as the tenant-level credential floor: Passkey (FIDO2) — hardware keys and Microsoft Authenticator passkeys via an AAGUID-targeted profile — Windows Hello for Business, and Temporary Access Pass enabled; weak methods (SMS, voice, TOTP, Authenticator push) disabled at the floor; the three enabled methods feed CA Authentication Strengths, the ceiling that picks from the floor per gate." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-authmethods-dark.svg?v=2" alt="Authentication Methods policy as the tenant-level credential floor: Passkey (FIDO2) — hardware keys and Microsoft Authenticator passkeys via an AAGUID-targeted profile — Windows Hello for Business, and Temporary Access Pass enabled; weak methods (SMS, voice, TOTP, Authenticator push) disabled at the floor; the three enabled methods feed CA Authentication Strengths, the ceiling that picks from the floor per gate." loading="lazy" decoding="async" />
+</figure>
 
-The architectural payoff is delegation without bleed: each customer's logs live in the customer's own Tier 1 workspace; the SOC reads Tier 2 (their content + the per-customer Tier 1 references); audit/forensic restores from Tier 3 happen on the central workspace without exposing other customers' logs.
+The tenant-level allow-list of credential types — Passkey (FIDO2), Windows Hello for Business, Microsoft Authenticator **in passkey mode only**, Temporary Access Pass — with weak methods (SMS, voice, software TOTP) disabled at the floor. It sets the *floor*; Conditional Access Authentication Strengths then layer the more-restrictive grant control on top as the *ceiling*.
 
-*Covered in depth in [L-8 (forthcoming)](/posts/three-tier-logging-architecture/), [O-8 (forthcoming)](/posts/sentinel-cost-optimization/).*
+That Authenticator qualifier is deliberate: the Microsoft Authenticator *method* — classic push MFA with number matching — is disabled along with the weak methods. Authenticator participates only through the **Passkey (FIDO2)** method, admitted by an AAGUID-targeted passkey profile — the same machinery behind the [AAGUID allow-list](#node-aaguid) that follows.
 
-### 16. New nodes — one-paragraph introductions
+The two are easy to confuse but do different jobs: the methods policy decides what can ever be *registered*; the auth strength decides what is *accepted at a given gate*. The reference platform keeps the floor tight precisely so an auth-strength grant can assume only strong methods exist to choose from.
 
-These twelve nodes appear in the master diagram but don't yet have a full sub-diagram in this post. Each will get its own slice-post over time; the paragraphs below name the node, place it in its layer, and cite the canonical doc anchor.
+*Covered in depth in [Auth strengths vs auth contexts](/posts/auth-strengths-vs-auth-contexts/).*
 
-- **Platform delivery pipeline (Layer 1 — Delivery).** Multi-stage unified pipeline that consumes the JSON Schema produced from the Engagement Template DOCX, then orchestrates every downstream stage: identity bootstrap, MG vending, Subscription Vending (`lz-vending`), Hub & Spoke deployment, EPAC + AMBA assignment, Sentinel connector wire-up, CA persona deployment, customer cut-over. One pipeline, one engagement record, idempotent. Lives in the platform management org with the platform security org carrying the shared-library fork.
-- **Cost Management (Layer 2 — Azure substrate).** Per-customer billing rollup, budget enforcement at MG and subscription scope, anomaly detection that fires AMBA Action Groups when a customer's spend slope crosses threshold. Tied to the reference platform's chargeback model — each customer is a separate cost-management scope so the platform operator can split invoices per engagement without re-tagging at billing time.
-- **Subscription Vending (Layer 1 — Delivery).** `lz-vending` Terraform module that creates per-customer subscriptions inline with the platform delivery pipeline. The same pipeline run creates the subscription, places it under the correct per-customer LZ MG, assigns the policy-set, and creates the subscription-scoped RBAC groups (already PIM-eligible at creation — no follow-up stage, no race condition).
-- **Compliance Framework Mapping (Layer 1 — Delivery).** A documented mapping between platform policy assignments and ~12 regulatory frameworks (CIS / ISO 27001 / SOC 2 / NIS2 / PCI DSS / GDPR / NIST 800-53 / HITRUST / CMMC / DORA / EU AI Act / NIST CSF). The mapping is the artefact; Defender for Cloud reads it to populate the compliance dashboard.
-- **Managed HSM (Layer 2 — Azure substrate).** FIPS 140-3 Level 3 customer-managed key store. Backs the sovereign L2 and L3 encryption requirements: customer keys never leave the HSM boundary, the platform operator can't read them, and the Confidential Isolated MG references HSM keys for storage + compute encryption.
-- **Administrative Units (Layer 3 — Identity & Access).** AU-scoped administration for delegated roles — particularly relevant for tenants where the platform operator holds only a subset of admin authority (e.g., security AU only, not identity AU). CA policies can target AU-scoped admins separately from tenant-global admins.
-- **Maester (Layer 5 — Assurance).** PowerShell + Pester-based test framework that asserts tenant security posture against ~200 checks (CA configuration, PIM tier policies, authentication methods, device controls, app consent). Run on a schedule from the platform security org; results pushed into Sentinel as a custom data source so detections can fire on regressions.
-- **Zero Trust Assessment (Layer 5 — Assurance).** A fork of the open-source Zero Trust Assessment with 200+ Zero Trust-specific tests added by the platform team. Findings feed into Defender for Cloud as additional posture signals and into Sentinel as a separate evidence stream.
-- **Microsoft-hosted agents (Layer 1 — Delivery).** Parallel agent pool used alongside ACI-based self-hosted agents for non-sovereign workloads where the public Microsoft image is acceptable and the cold-start time matters more than the workload-identity-only constraint. Self-hosted (UAMI + WIF, no PAT) carries the sovereign workloads; Microsoft-hosted carries the rest.
-- **Authentication Methods policy (Layer 3 — Identity & Access).** Tenant-level allow-list of credential types — FIDO2, WHfB, MS Authenticator, TAP — with weak methods (SMS, voice, software TOTP) disabled at the floor. CA Authentication Strengths then layer the more-restrictive grant control on top. The policy is the *floor*; the auth strength is the *ceiling*.
-- **AAGUID allow-list (Layer 3 — Identity & Access, surfaced inside the auth strength).** The FIDO2 Authenticator Attestation GUID allow-list — only hardware-attested keys from approved manufacturers satisfy the hardware-attested authentication strength. The master diagram folds it into the Authentication Strengths node label rather than calling it out as a separate node.
-- **PAW — Privileged Access Workstations (Layer 3 — Identity & Access).** Dedicated hardware for the privileged tier. Registration of credentials for privileged personas is blocked from non-PAW devices via CA registration policy. The PAW node is the hardware-rooted prerequisite that lets the rest of the Identity stack make defensible assertions about *who* is on the keyboard.
+#### 14. AAGUID allow-list {#node-aaguid}
 
-## How the layers connect
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-aaguid-light.svg?v=3" alt="FIDO2 AAGUID allow-list enforced at two points: the passkey profile governs what can be registered (the floor) and the custom authentication strength governs what a gate accepts (the ceiling). The strength excludes three things for three different reasons: Authenticator passkeys (attested, but their AAGUIDs are off the list), Windows Hello for Business (a separate strength subset the AAGUID mechanism never touches), and synced passkeys (iCloud Keychain, Google Password Manager — no attestation support, blocked by attestation enforcement)." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-aaguid-dark.svg?v=3" alt="FIDO2 AAGUID allow-list enforced at two points: the passkey profile governs what can be registered (the floor) and the custom authentication strength governs what a gate accepts (the ceiling). The strength excludes three things for three different reasons: Authenticator passkeys (attested, but their AAGUIDs are off the list), Windows Hello for Business (a separate strength subset the AAGUID mechanism never touches), and synced passkeys (iCloud Keychain, Google Password Manager — no attestation support, blocked by attestation enforcement)." loading="lazy" decoding="async" />
+</figure>
 
-The master diagram above shows ~32 nodes across five layers, with the load-bearing inter-layer edges already drawn. The full dependency map is wider; the additional load-bearing edges hidden in the prose:
+The FIDO2 Authenticator Attestation GUID allow-list — only hardware-attested keys from approved manufacturers satisfy the hardware-attested authentication strength. The master map folds it into the Authentication Strengths node rather than calling it out separately, but it is the concrete mechanism behind "hardware-attested": a list of AAGUIDs enforced in the custom strength's advanced options. The same list works at **two enforcement points**: the [passkey profile](#node-auth-methods) applies it at *registration* (the floor), the custom authentication strength at *sign-in* (the ceiling) — one AAGUID set, checked at both ends.
 
-- **MG hierarchy → DINE cascade** — assignment at MG scope auto-deploys child resources (diagnostic settings, Defender plans, AMBA alerts) into every subscription. Layer 1 (EPAC / AMBA) writes once at MG; the cascade hits every new subscription on creation, without re-running the pipeline.
-- **Subscription Vending → RBAC groups (PIM-enabled)** — the `lz-vending` Terraform module creates subscription-scoped groups inline, and the same pipeline run flips them to PIM-eligible immediately. A Layer 1 → Layer 3 cross-edge that hides behind the visible Layer 1 → Layer 2 edge.
-- **AMBA-ALZ → DINE → Action Groups → Alert routing** — the alert baseline cascades through Layer 1 (DINE deploys the alerts), Layer 4 (Action Groups route firings), and the operational on-call channel that receives the routed alert. A four-stage chain across three layers.
-- **Engagement Template → CAPrepare stage → CA policy JSONs (manual portal deployment)** — CA policy generation is partly automated (the platform delivery pipeline generates the JSON), partly manual (a portal admin imports each generated JSON because CA policy creation via Graph is still partially gated). One of the documented Layer 1 → Layer 3 gaps the reference platform tracks.
-- **Defender for Cloud → MG hierarchy** — DfC's regulatory compliance dashboard reads against the MG hierarchy; the compliance scores feed back into Sentinel as an additional signal source. A Layer 4 → Layer 2 read-edge with a Layer 4 → Layer 4 fan-out into Sentinel.
-- **PIM-for-Groups ↔ Defender XDR Unified RBAC ↔ Sentinel** — three nodes in a triangle across Layers 3, 4, and 4: PIM-for-Groups governs activation of groups assigned Defender XDR roles; Sentinel detection rules watch for direct membership changes that bypass the PIM activation flow (covered in I-1's Sentinel rule design).
-- **Maester + ZTA → Sentinel → Layer 1 next delivery wave** — the Layer 5 → Layer 4 feed lands assurance findings as Sentinel evidence; the dashed Layer 5 → Layer 1 feedback edge closes the cycle by feeding findings back into the Engagement Template revision pipeline. Without this loop, assurance is just observation; with it, the platform reconfigures itself in response to its own findings.
-- **Platform security org ADO ← (no auto-sync) ← Platform management org ADO** — the shared-library repo lives in two repos, one per ADO organization, intentionally without automatic synchronisation. Code review on the management org's side never lands in the security org's side without a separate explicit PR; supply-chain compromise of the management org can't reach detections or policies.
+It is the strictest subset of phishing-resistant — and the exclusions work for **three different reasons**. **Microsoft Authenticator passkeys** *are* attested (registration is verified through App Attest on iOS, Play Integrity plus key attestation on Android) and carry their own AAGUIDs; they are out simply because those AAGUIDs aren't on the list. **Windows Hello for Business / platform credential** is a separate subset of the strength altogether — the passkey AAGUID mechanism never touches it. And **synced passkeys** (iCloud Keychain, Google Password Manager, third-party vaults — GA since March 2026) present their provider's AAGUID but **don't support attestation at all**: enforcing attestation excludes them wholesale at registration, which is exactly the point. AAGUID and attested are separate axes — the (rolling-out) Entra passkey on Windows proves it, carrying its own Windows Hello AAGUIDs with no attestation support — and without attestation enforcement, nothing verifies a claimed AAGUID; Microsoft's own guidance demotes the list to "a policy guide rather than a strict security control". Conflating these axes is the common mistake the slice-post is built to correct.
 
-The combined picture is ~28 master-diagram edges + eight cross-layer edges hidden in the prose + a large set of implicit dependencies inside the per-node detail diagrams. That's the size of a multi-tenant reference platform — too dense for one viewable graph, manageable as a layered map.
+*Covered in depth in [FIDO2 AAGUID attestation allow-listing](/posts/fido2-aaguid-attestation-whitelisting/).*
 
-## Where each piece is covered in depth
+#### 15. Privileged Access Workstations {#node-paw}
 
-The closing table — every top-level node, the slice-post that deep-dives it, status.
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-paw-light.svg?v=5" alt="Ordered privileged-access chain: the operator's everyday Entra-registered device reaches the Privileged Access Workstation — an Entra-joined, Intune-compliant Cloud PC — through the CA device filter; on the PAW, PIM activation comes first (gated by GSA network and attested key), and the elevated session — elevated user token, time-bound and auto-expiring, Conditional Access re-evaluated at each resource's token issuance — fans out to all three target surfaces: admin portals, Azure DevOps (everything-as-code behind approval gates), and the management APIs (Microsoft Graph, Intune, M365); credential registration is a lighter, non-PAW flow via trusted location and TAP." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-paw-dark.svg?v=5" alt="Ordered privileged-access chain: the operator's everyday Entra-registered device reaches the Privileged Access Workstation — an Entra-joined, Intune-compliant Cloud PC — through the CA device filter; on the PAW, PIM activation comes first (gated by GSA network and attested key), and the elevated session — elevated user token, time-bound and auto-expiring, Conditional Access re-evaluated at each resource's token issuance — fans out to all three target surfaces: admin portals, Azure DevOps (everything-as-code behind approval gates), and the management APIs (Microsoft Graph, Intune, M365); credential registration is a lighter, non-PAW flow via trusted location and TAP." loading="lazy" decoding="async" />
+</figure>
 
-| # | Component | Slice-post(s) | Status |
-|---|---|---|---|
-| 1 | PIM | [I-1](/posts/pim-at-scale-three-domains/) | **Published** |
-| 1 | PIM (CA enforcement) | [I-5](/posts/enforce-ca-on-pim-activation/) | Planned |
-| 1 | PIM-for-Groups boundary | [I-6](/posts/role-assignable-pim-groups-security-boundary/) | Planned |
-| 2 | Conditional Access — auth contexts | [I-4](/posts/auth-contexts-in-practice/) | Planned |
-| 2 | Conditional Access — strengths vs contexts | [I-8](/posts/auth-strengths-vs-auth-contexts/) | Planned |
-| 2 | Conditional Access — Protected Actions | [I-9](/posts/protected-actions-in-entra/) | Planned |
-| 2 | Conditional Access — persona scale | [I-10](/posts/persona-based-ca-at-scale/) | Planned |
-| 2 | Conditional Access — AI-agent persona | [I-11](/posts/ca-for-ai-agent-identity/) | Planned |
-| 2 | Conditional Access — AAGUID attestation | [I-13](/posts/fido2-aaguid-attestation-whitelisting/) | Planned |
-| 3 | Hub & Spoke | [L-4](/posts/hub-and-spoke-multi-customer/) | Planned |
-| 4 | GSA (notes) | [I-4](/posts/auth-contexts-in-practice/) | Planned |
-| 5 | ADO backup | [S-7](/posts/ado-backup-sovereign-data/) | Planned |
-| 6 | Self-hosted ADO agents | [S-1](/posts/no-pat-ado-agents/) | Draft in progress |
-| 7 | Terraform delivery (three domains) | [S-2](/posts/three-domain-terraform-wif/) | Planned |
-| 7 | Terraform delivery (cross-tenant WIF) | [S-12](/posts/cross-tenant-wif-assessment/) | Planned |
-| 8 | EPAC + AMBA (dual EPAC) | [S-13](/posts/dual-epac-tamper-proof/) | Planned |
-| 9 | Platform delivery pipeline | dedicated delivery-pipeline post (forthcoming) | Planned |
-| 10 | UTCM — concept | [S-9](/posts/utcm-concept-and-primitives/) | Planned |
-| 10 | UTCM — drift detection | [S-10](/posts/utcm-drift-detection-at-scale/) | Planned |
-| 10 | UTCM vs M365DSC vs EPAC | [S-11](/posts/utcm-vs-m365dsc-vs-epac/) | Planned |
-| 11 | Defender portal migration | [O-9](/posts/defender-portal-migration-march-2027/) | Planned |
-| 12 | Sentinel hunting | [O-1](/posts/sentinel-hunting-pim-activations/) | Planned |
-| 12 | Sentinel cost optimisation | [O-8](/posts/sentinel-cost-optimization/) | Planned |
-| 12 | Workspace Manager / per-customer Sentinel | [O-10](/posts/workspace-manager-sentinel-per-customer/) | Planned |
-| 13 | Defender for Cloud | [O-2](/posts/defender-for-cloud-mg-scope/) | Planned |
-| 13 | Compliance framework mapping | [O-7](/posts/compliance-framework-mapping-dfc/) | Planned |
-| 14 | MG hierarchy | [L-1](/posts/mg-hierarchy-multi-customer/) | Planned |
-| 14 | Multi-region without region MGs | [L-7](/posts/multi-region-without-region-mgs/) | Planned |
-| 15 | Three-tier logging | [L-8](/posts/three-tier-logging-architecture/) | Planned |
-| 16 | Platform delivery pipeline | dedicated delivery-pipeline post (forthcoming) | Planned |
-| 16 | Cost Management | dedicated post (forthcoming) | Planned |
-| 16 | Subscription Vending (`lz-vending`) | dedicated post (forthcoming) | Planned |
-| 16 | Compliance Framework Mapping | [O-7](/posts/compliance-framework-mapping-dfc/) (see also row 13) | Planned |
-| 16 | Managed HSM (sovereign keys) | dedicated post (forthcoming) | Planned |
-| 16 | Administrative Units | dedicated post (forthcoming) | Planned |
-| 16 | Maester | dedicated post (forthcoming) | Planned |
-| 16 | Zero Trust Assessment | dedicated post (forthcoming) | Planned |
-| 16 | Microsoft-hosted agents | dedicated post (forthcoming) | Planned |
-| 16 | Authentication Methods policy | dedicated post (forthcoming) | Planned |
-| 16 | AAGUID allow-list | [I-13](/posts/fido2-aaguid-attestation-whitelisting/) (see also row 2) | Planned |
-| 16 | Privileged Access Workstations (PAW) | dedicated post (forthcoming) | Planned |
+The dedicated, hardened workstation for the privileged tier — in this platform an **Entra-joined, Intune-compliant Cloud PC**, reached through the Windows App from the operator's everyday device (see the [access flow](#access-flow)). It is the device prerequisite for privileged *access*: every portal session and every PIM activation must originate on a PAW, which Conditional Access enforces alongside the [GSA compliant-network](#node-gsa) condition and a phishing-resistant authentication strength. The chain is ordered — **PIM activation comes first**, and only the elevated session proceeds to the three target surfaces: the **admin portals**, **Azure DevOps** — where [everything-as-code](#node-ado) lives behind approval gates, access itself JIT via PIM group claims — and the **management APIs** ([Graph](#node-apis), Intune, M365), the same surface the pipeline writes through. There is no portal, repo, or API access ahead of activation.
+
+So the PAW is the device root that lets the rest of the Identity stack make defensible assertions about *who* is on the keyboard — PIM activation, auth-context step-up, and the FIDO2 AAGUID allow-list all assume the session runs on a managed, attested machine. Credential *registration* is deliberately a separate, lighter flow (a trusted location plus a TAP bootstrap), not a PAW operation.
+
+*Covered in depth in [PAW on Cloud PC](/posts/paw-cloud-pc-privileged-access/).*
+
+#### 16. Global Secure Access (GSA) {#node-gsa}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-gsa-light.svg?v=4" alt="Global Secure Access: traffic acquisition (GSA client and remote networks) tunnels to the Entra SSE edge; three forwarding profiles — Microsoft traffic (Teams, Exchange, SharePoint), Internet Access (Secure Web Gateway with web filtering), and Private Access (ZTNA, the VPN replacement) — converge into the compliant-network signal that Conditional Access evaluates, with CA signaling and source-IP restoration." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-gsa-dark.svg?v=4" alt="Global Secure Access: traffic acquisition (GSA client and remote networks) tunnels to the Entra SSE edge; three forwarding profiles — Microsoft traffic (Teams, Exchange, SharePoint), Internet Access (Secure Web Gateway with web filtering), and Private Access (ZTNA, the VPN replacement) — converge into the compliant-network signal that Conditional Access evaluates, with CA signaling and source-IP restoration." loading="lazy" decoding="async" />
+</figure>
+
+GSA is Microsoft's identity-centric SSE (Security Service Edge) — a tenant-level Entra service. Traffic is acquired by the **GSA client** (or remote-network IPsec links for branch sites) and evaluated against **three forwarding profiles**: **Microsoft traffic** (Teams, Exchange, SharePoint — with token-theft hardening and enriched logs), **Internet Access** (an identity-centric Secure Web Gateway with web content filtering), and **Private Access** (ZTNA — the VPN replacement for on-prem and Azure-private workloads, client-only). Most importantly for this platform, the result is a **network identity** that Conditional Access can target as a network condition.
+
+GSA is an **Entra feature that happens to be delivered as connectivity**: Global Secure Access is the unifying name for **Microsoft Entra Internet Access and Microsoft Entra Private Access**, configured in the Entra admin center — which is why it belongs in this layer rather than with the Azure substrate. Its platform role is the **compliant-network condition** Conditional Access evaluates (the network leg of the [triple-gate](#node-ca)): each session carries an identity-tied network attribute CA can check, with no egress-IP lists to maintain — and a token stolen from a session and replayed from outside the compliant network is denied at authentication. Tenants without GSA fall back to named locations (IP-range based), which works but ties the network control to physical IP allocation rather than identity.
+
+A note on pace: GSA is generally available and still moving fast — Intelligent Local Access, B2B guest access, and Private Access for Entra-registered (BYOD) devices all landed within the past year. Where this series leans on it, it does so as the identity-centric network layer the architecture is built toward; slice-posts will deepen it as the platform's adoption progresses.
+
+*Covered in depth in [Authentication contexts in practice](/posts/auth-contexts-in-practice/) (notes), with a dedicated GSA-deployment post likely on the longer-term slate.*
+
+#### 17. Conditional Access {#node-ca}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-ca-light.svg?v=8" alt="Conditional Access as the per-persona framework: auth contexts (Protected Actions, PIM step-up, guest step-up) drive the triple-gate of device + network + strength with three policies per context; the eight per-persona ranges (CA-GLOBAL through CA-BREAKGLASS) drive the per-persona policy set (BASE, IdP, DP, ApP, ASR) with its conflict rules (block wins, shortest sign-in frequency); both converge on access by device tier, where the device leg sorts applications into the PAW tier (portals + admin), the PRT tier (Exchange, Teams), and Blocked — every other enterprise app, explicit deny by default." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-ca-dark.svg?v=8" alt="Conditional Access as the per-persona framework: auth contexts (Protected Actions, PIM step-up, guest step-up) drive the triple-gate of device + network + strength with three policies per context; the eight per-persona ranges (CA-GLOBAL through CA-BREAKGLASS) drive the per-persona policy set (BASE, IdP, DP, ApP, ASR) with its conflict rules (block wins, shortest sign-in frequency); both converge on access by device tier, where the device leg sorts applications into the PAW tier (portals + admin), the PRT tier (Exchange, Teams), and Blocked — every other enterprise app, explicit deny by default." loading="lazy" decoding="async" />
+</figure>
+
+Conditional Access is the gate every privileged operation passes through, but the framework is what makes it scale. Per-persona ranges — CA-GLOBAL, CA-ADMIN, CA-INTERNAL, CA-WORKLOAD, CA-GSA, CA-AGENT (AI-agent identities — now a first-class Conditional Access assignment alongside users and workload identities, with their own range because agents can't satisfy interactive controls like MFA), CA-GUEST, CA-BREAKGLASS — cover every sign-in surface the reference platform has to govern. The guest range is templated: a set of policies cloned per engagement with the named location and authentication strength substituted per engagement. Within each range, individual policies follow a fixed **five-type taxonomy** — **BASE** (base protection), **IdP** (identity protection), **DP** (data protection), **ApP** (app protection), and **ASR** (attack-surface reduction) — so a persona's coverage reads as a checklist, not an ad-hoc pile of policies.
+
+The three authentication contexts — Protected Actions for sensitive admin operations, internal-user PIM activation, and guest-side step-up (used for both guest lifecycle actions and guest PIM activation) — each trigger a **triple-gate**: a device control (block non-compliant or non-managed devices), a network control (block off-trusted-network — GSA where available, named locations where not), and a credential control (require a specific authentication strength). Three policies per context, evaluated as a block-wins-on-conflict, shortest-sign-in-frequency-wins set of rules.
+
+**Access is partitioned by application sensitivity across device tiers.** The device leg of the triple-gate does more than block non-compliant devices — it sorts applications into tiers. **Portals and admin surfaces** (Azure, Entra, Defender, Intune, Purview, the ADO web UI) are reachable only from a **[PAW](#node-paw)** — an Entra-joined, Intune-compliant device — additionally gated to the **[GSA compliant network](#node-gsa)** and a **phishing-resistant** authentication strength (TAP is excluded; it is a registration-only bootstrap). The **communication surface** — Exchange and Teams — drops to a lighter tier: any **registered device carrying a Primary Refresh Token (PRT)**, in the country location, *without* the PAW requirement. **Every other enterprise application is denied by an explicit block.**
+
+The authentication-strength catalog underneath spans several strengths — a hardware-attested strength (FIDO2 hardware-attested only, via an AAGUID allow-list), a phishing-resistant strength (WHfB + FIDO2 + x509), and registration and guest strengths for cases where a hardware key isn't operationally viable. These strengths are the *ceiling* that layers on top of the [Authentication Methods policy](#node-auth-methods) *floor*.
+
+*Covered in depth in [Authentication contexts in practice](/posts/auth-contexts-in-practice/), [Auth strengths vs auth contexts](/posts/auth-strengths-vs-auth-contexts/), [Protected Actions in Entra](/posts/protected-actions-in-entra/), [Persona-based Conditional Access at scale](/posts/persona-based-ca-at-scale/), [Conditional Access for AI-agent identities](/posts/ca-for-ai-agent-identity/), [FIDO2 AAGUID attestation allow-listing](/posts/fido2-aaguid-attestation-whitelisting/).*
+
+#### 18. PIM {#node-pim}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-pim-light.svg?v=5" alt="PIM as the JIT identity primitive: three management areas — Entra directory roles (Microsoft Graph policy), Azure resource roles (ARM policy, one per role and scope), and PIM-for-Groups (eligible member and eligible owner) — converge on one rule-types policy shape (enablement, expiration, approval, auth context) that feeds the Tier-0/1/2 model, where duration and approval differ but the CA gate is the same; PIM-for-Groups additionally projects group claims into downstream consumers (Defender XDR Unified RBAC, ADO access, SaaS)." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-pim-dark.svg?v=5" alt="PIM as the JIT identity primitive: three management areas — Entra directory roles (Microsoft Graph policy), Azure resource roles (ARM policy, one per role and scope), and PIM-for-Groups (eligible member and eligible owner) — converge on one rule-types policy shape (enablement, expiration, approval, auth context) that feeds the Tier-0/1/2 model, where duration and approval differ but the CA gate is the same; PIM-for-Groups additionally projects group claims into downstream consumers (Defender XDR Unified RBAC, ADO access, SaaS)." loading="lazy" decoding="async" />
+</figure>
+
+PIM is the JIT identity primitive in three management areas — Entra directory roles, Azure resource roles, and PIM-for-Groups. Each management area has its own `roleManagementPolicy` shape (Graph for Entra and Groups; ARM for Azure resources), and each policy is composed of sibling rule objects: enablement (which controls fire at activation — MFA, justification), expiration (how long the active assignment can persist), approval (whether activation routes through an approver), and the authentication-context binding (which Conditional Access context the activation request claims).
+
+The tiered model (Tier-0 / Tier-1 / Tier-2) is the reference platform's way of normalising activation policy across the Entra directory roles, every (role × scope) tuple on the Azure side, and both sides (Member + Owner) of every role-assignable group. All three management areas share one auth-context binding, so all activations clear the same Conditional Access evaluation — the per-tier difference is only duration and approval, not the gate.
+
+PIM-for-Groups extends the JIT pattern to anything that consumes group claims for authorisation — Defender XDR Unified RBAC roles assigned to groups, Azure DevOps project access evaluated against group membership, third-party SaaS that consumes Entra group claims. The eligible-member / eligible-owner pattern (governed symmetrically — see [PIM at scale's Member-vs-Owner trap](/posts/pim-at-scale-three-domains/#member-vs-owner-trap)) extends the policy spine into those downstream consumers without duplicating the activation primitive.
+
+*Covered in depth in [PIM at scale](/posts/pim-at-scale-three-domains/), [Enforcing CA on PIM activation](/posts/enforce-ca-on-pim-activation/), [Role-assignable PIM groups: the security boundary](/posts/role-assignable-pim-groups-security-boundary/).*
+
+#### 19. Administrative Units {#node-au}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-au-light.svg?v=4" alt="Administrative Units as the identity-side scope boundary — delegation scoped, blast radius bounded — fanning into per-engagement AUs (one unit per engagement — a governance grouping first, with roles rarely assigned), AU-scoped roles (apply to unit members only), restricted management (guards the break-glass accounts — tenant admins blocked, no PIM on members), and the CA directory-roles trap (AU-scoped assignments are invisible to the condition — target via PIM groups instead); a dashed link ties the root to the MG hierarchy branch, the substrate counterpart following the same boundary pattern." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-au-dark.svg?v=4" alt="Administrative Units as the identity-side scope boundary — delegation scoped, blast radius bounded — fanning into per-engagement AUs (one unit per engagement — a governance grouping first, with roles rarely assigned), AU-scoped roles (apply to unit members only), restricted management (guards the break-glass accounts — tenant admins blocked, no PIM on members), and the CA directory-roles trap (AU-scoped assignments are invisible to the condition — target via PIM groups instead); a dashed link ties the root to the MG hierarchy branch, the substrate counterpart following the same boundary pattern." loading="lazy" decoding="async" />
+</figure>
+
+In this platform primarily **one AU per engagement**: each engagement's users, groups, and devices form a unit. The units are as much a **governance construct** as a delegation target — they group each engagement's objects for scoping, visibility, and policy hygiene — and **role assignments against them are deliberately rare**; when delegation is genuinely needed, it is granted against the engagement's unit rather than the directory. The same primitive covers partial-authority setups (for example a security AU but not an identity AU). An AU-scoped assignment applies only to managing the unit's members, never to tenant-wide settings. One trap worth naming: Conditional Access's *directory-roles* condition sees only **tenant-scoped built-in assignments — AU-scoped role assignments are invisible to it** — so the platform targets its AU-scoped admins through the role-assignable [PIM groups](#node-pim) that hold the assignments, keeping delegation and policy aligned by group rather than by role.
+
+AUs are the scoping primitive that makes multi-engagement RBAC isolation defensible inside a single tenant: roles are granted against the AU, not the whole directory, so the blast radius of any one delegation is bounded by the unit. This is the identity-side counterpart to the MG branch that bounds the substrate.
+
+**Restricted management AUs** push the boundary one step further: objects inside can be modified only by admins scoped to the unit — tenant-scoped roles up to and including Global Administrator are blocked (a GA can still manage the RMAU itself and assign themselves into scope, but that escalation is an auditable event, not a silent read-across). The cost is real, though: **PIM, entitlement management, and access reviews don't work on member objects** — so the platform uses an RMAU for exactly one thing: the **break-glass accounts**, the objects that must survive even a compromised tenant-scoped admin. Never the PIM-managed groups that carry the activation model.
+
+*Covered in depth in [RBAC for tenant isolation](/posts/rbac-tenant-isolation/).*
+
+### Layer 4 — Azure substrate
+
+#### 20. MG hierarchy {#node-mg}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-mg-light.svg?v=5" alt="Management Group hierarchy drawn as nested containers: the Tenant Root Group contains the Intermediate root (platform-level policy base), which contains the Platform branch (Management, Security, Connectivity leaf MGs), the Landing Zones branch (per-engagement MGs, each nesting hub, apps, and identity), and the Sandbox, Decommissioned, and amber Confidential Isolated (L3 sovereign, own lineage) branches; policy inherits down the tree, and Azure Lighthouse hangs off externally for cross-tenant delegation." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-mg-dark.svg?v=5" alt="Management Group hierarchy drawn as nested containers: the Tenant Root Group contains the Intermediate root (platform-level policy base), which contains the Platform branch (Management, Security, Connectivity leaf MGs), the Landing Zones branch (per-engagement MGs, each nesting hub, apps, and identity), and the Sandbox, Decommissioned, and amber Confidential Isolated (L3 sovereign, own lineage) branches; policy inherits down the tree, and Azure Lighthouse hangs off externally for cross-tenant delegation." loading="lazy" decoding="async" />
+</figure>
+
+The Management Group hierarchy is the organisational substrate that every other plane lands on. Below the Tenant Root Group, an intermediate root carries the platform-level policy base. Platform MGs (Management, Security, Connectivity) host shared services. Landing Zones MG is the parent of per-engagement MGs — one branch per engagement, with the engagement's connectivity hub, application subscriptions, and identity scoping all nested below. Sandbox MG holds relaxed policies for experimentation; Decommissioned MG holds soft-deleted subscriptions during the off-boarding cool-down.
+
+The fourth top-level branch is Confidential Isolated MG — a separate MG (not a subtree of Platform or Landing Zones) for L3 sovereign workloads that demand confidential compute, encryption in use, and a separate policy lineage. It's its own tier in the hierarchy, not a sub-branch under an org Landing Zone.
+
+For delegated tenants (where the slice owner keeps their tenant root but delegates platform management to the platform operator), Azure Lighthouse provides cross-tenant resource management. Lighthouse projects an operator-side identity (group + delegation manifest) into the delegated tenant; the operator can operate the slice owner's resources without per-engagement logins, while RBAC scoping limits what the projected identity can do.
+
+*Covered in depth in [MG hierarchy for multi-org tenants](/posts/mg-hierarchy-multi-org/), [Multi-region without region MGs](/posts/multi-region-without-region-mgs/).*
+
+#### 21. Hub & Spoke network {#node-hub-spoke}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-hub-spoke-light.svg?v=10" alt="Hub-and-spoke network drawn as nested containers. The Hub VNet (connectivity subscription, per engagement) groups its services into three functional sub-zones: Ingress (Front Door for the global edge WAF and CDN, Application Gateway for the regional WAF and URL routing), Egress & inspection (Azure Firewall, DDoS Protection), and Connectivity & access (VPN/ExpressRoute gateway, Private DNS, Bastion). Each sub-zone has a directed connection: Internet flows into Ingress, on-premises into Connectivity & access, and the spoke's UDR force-tunnel into Egress & inspection. A caption on the hub notes it is dedicated per customer for an MSSP and can be shared for an intercorporate holding. Below, the Spoke VNets container (per environment) holds NSGs + UDRs, workload subnets, and private endpoints (Private Link, public access off); peering links hub and spoke (non-transitive), and Azure VNet Manager hangs off externally for optional large-fleet peering. A legend notes the network is deny-by-default, so every arrow is an explicit allow." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-hub-spoke-dark.svg?v=10" alt="Hub-and-spoke network drawn as nested containers. The Hub VNet (connectivity subscription, per engagement) groups its services into three functional sub-zones: Ingress (Front Door for the global edge WAF and CDN, Application Gateway for the regional WAF and URL routing), Egress & inspection (Azure Firewall, DDoS Protection), and Connectivity & access (VPN/ExpressRoute gateway, Private DNS, Bastion). Each sub-zone has a directed connection: Internet flows into Ingress, on-premises into Connectivity & access, and the spoke's UDR force-tunnel into Egress & inspection. A caption on the hub notes it is dedicated per customer for an MSSP and can be shared for an intercorporate holding. Below, the Spoke VNets container (per environment) holds NSGs + UDRs, workload subnets, and private endpoints (Private Link, public access off); peering links hub and spoke (non-transitive), and Azure VNet Manager hangs off externally for optional large-fleet peering. A legend notes the network is deny-by-default, so every arrow is an explicit allow." loading="lazy" decoding="async" />
+</figure>
+
+The network plane is per-engagement hub-and-spoke, with the hub living in a dedicated connectivity subscription per engagement. Inside the hub, services are grouped into three functional zones. **Egress & inspection** carries Azure Firewall (with a per-engagement firewall policy) and the DDoS Protection Plan. **Connectivity & access** carries the VPN / ExpressRoute gateway (when the engagement template enables it), Private DNS zones with a DNS Resolver for hybrid resolution, and Bastion for tenant-side jump access. **Ingress** is the north-facing edge, covered below.
+
+Spokes — typically one per environment (prod / dev / test / sandbox) — peer to the hub. **User-Defined Routes (UDRs)** on every spoke subnet force-tunnel traffic to the firewall — a custom route (usually `0.0.0.0/0` with next hop set to the firewall's private IP) that overrides Azure's default system routes so nothing egresses without inspection; NSGs scope ingress/egress per subnet; workload subnets host the actual application surfaces. A dedicated **Private Link subnet** on each spoke holds the **private endpoints** through which workloads reach Azure PaaS (Storage, Key Vault, SQL) over a private IP — with **public network access turned off** on the target service so the only path is the endpoint. The `privatelink.*` **private DNS zones are centralised in the hub** (the Connectivity & access zone's DNS Resolver), linked to every spoke, so name resolution is consistent and there's no split-brain DNS; app teams create the endpoints, the platform owns the zones.
+
+**Deny by default is the rule for every connection.** Azure's stock NSG rules are *not* deny-by-default — they allow all intra-VNet traffic and all outbound internet, denying only unsolicited inbound from the internet. So the platform overrides them with an **explicit deny-all baseline** (a low-priority catch-all) and admits only allow-listed flows, while the UDR force-tunnel routes everything through the Azure Firewall, which *is* natively deny-by-default (it drops anything no rule permits). The upshot is that every path the diagram draws — Internet into Ingress, on-premises into Connectivity & access, the spoke's force-tunnel into Egress & inspection, and spoke-to-hub peering — is an explicit, individually authorized exception, never an inherited default. Peering is non-transitive for the same reason: spoke-to-spoke reachability is allow-listed per link, and because a `0.0.0.0/0` route doesn't catch directly-peered spokes, the platform adds explicit routes so even east-west traffic returns to the firewall.
+
+The **Ingress** zone is the hub's north-facing edge, where public web traffic enters (and, through the Connectivity & access gateway, on-premises traffic): **Azure Front Door** — the global Layer-7 service that runs the Web Application Firewall at the network edge (190-plus points of presence worldwide) with CDN caching and multi-region failover — and/or **Application Gateway**, the regional Layer-7 load balancer (WAF, TLS termination, URL-path routing) that lives *inside the hub VNet* itself. An engagement picks **one or both** (Front Door in front for the global edge, Application Gateway behind it for regional routing). The WAF is a **separate policy resource per platform** — a Front Door WAF policy and an Application Gateway WAF policy are different types, so you can't attach one policy to both; running both edges gives a **layered pair** (edge WAF on Front Door as the first line, a regional WAF on Application Gateway tuned per backend). A single policy *can* be shared across multiple instances of the same type. Because that edge decrypts the customer's traffic, holds its domain names and TLS certificates, and writes its request logs, the **whole hub VNet — edge included — sits inside the customer's data boundary**. This is the one place the platform's *org-shape-agnostic* framing genuinely bends, and the reason is legal, not technical:
+
+- For an **MSSP**, every engagement is a *separate legal entity* — a distinct data controller, with the operator acting as its processor. Sharing one hub (and with it one Front Door / Application Gateway) across customers would commingle their certificates, their WAF request logs (which contain personal data), and one config-and-blast-radius surface across those legal boundaries. So each customer gets its **own hub VNet** in its own connectivity subscription — one per engagement, or one shared across an *engagement family* that belongs to the **same** customer. The data-segregation duty that data-protection law, the customer DPA, and the ISO 27001 / SOC 2 controls all impose is what forces the split; it isn't a performance choice.
+- For an **intercorporate** deployment (departments or subsidiaries inside one holding), the whole estate is *one legal entity* — one data controller — so no cross-controller boundary is ever crossed. A **shared** hub, and with it a shared Front Door / Application Gateway, across the infrastructure is fine (and cheaper to run); per-application routing rules and per-site WAF policies still separate the workloads logically, but there is no legal reason to stand up a separate hub per department.
+
+For tenants with a large org footprint (dozens of hubs to keep peered), Azure Virtual Network Manager automates the peering topology. AVNM is optional — small fleets can manage peering directly. The placement matrix (which resources live in the hub vs. in the spoke vs. in the workload subscription) follows a deterministic rule: the ingress edge and shared infrastructure (Front Door / App Gateway, firewall, bastion, DNS, DDoS, gateways) sit in the hub; per-environment isolation (subnets, NSGs, UDRs, workloads) sits in the spoke.
+
+*Covered in depth in [Hub-and-spoke for multi-org tenants](/posts/hub-and-spoke-multi-org/).*
+
+#### 22. Cost Management {#node-cost}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-cost-light.svg?v=2" alt="Cost Management applied at every management group in the root subtree (platform MGs and engagements alike), fanning into Budgets (MG and subscription scope), Anomaly detection (per subscription, ML-based, email), and Chargeback (MG rollup, not the invoice); budgets scoped to a subscription or resource group wire threshold alerts to an AMBA Action Group for automated response, and visibility stays at Cost Management Reader — cost data, not invoices." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-cost-dark.svg?v=2" alt="Cost Management applied at every management group in the root subtree (platform MGs and engagements alike), fanning into Budgets (MG and subscription scope), Anomaly detection (per subscription, ML-based, email), and Chargeback (MG rollup, not the invoice); budgets scoped to a subscription or resource group wire threshold alerts to an AMBA Action Group for automated response, and visibility stays at Cost Management Reader — cost data, not invoices." loading="lazy" decoding="async" />
+</figure>
+
+Per-engagement cost rollup, budgets, and anomaly detection, all scoped to the engagement's MG branch. **Budgets** are set at the engagement's management group and per subscription; a budget scoped to a subscription or a resource group can wire its threshold alerts to an **AMBA Action Group** for automated response — action-group automation is only available at subscription and resource-group scope, so MG-scope budgets alert by email rather than firing an action. **Anomaly detection** is separate and runs per subscription: a **machine-learning (ML) model** — an unsupervised time-series forecaster that learns each subscription's trailing 60-day usage pattern (Microsoft's model uses a WaveNet deep-learning algorithm) and flags any day whose normalized spend falls outside the expected range — catches an unexpected spike or dip and emails on detection (deviation-based, not a fixed threshold). Because a management group rolls up all its subscriptions' costs — and when a subscription moves branches its whole cost history moves with it — per-engagement chargeback falls out of the MG hierarchy rather than a tagging convention, with no re-tagging at billing time.
+
+Chargeback here is cost *allocation*, not invoicing: the invoice is still cut at the billing-profile level, but Cost Analysis attributes every charge to its engagement MG for showback and internal recharge. Because the scope boundary is the per-engagement MG branch, cost isolation reuses the same structural backbone as policy and RBAC isolation: one boundary, three concerns. Visibility stays at **Cost Management Reader** — which sees cost data and recommendations but *not* invoices — never a billing-account or EA role.
+
+The **same cost skeleton — budgets, anomaly detection, chargeback rollup, Cost Management Reader — applies to every management group in the root subtree**: the [Platform MGs](#node-mg) (Management, Security, Connectivity) as much as the engagement branches. Only the *values* change — the platform's own budgets and thresholds alongside each engagement's. Cost Management is available at every MG, subscription, and resource group, so the platform runs one pattern over the whole tree and reads a Management-MG rollup for its own spend the same way it reads a per-engagement one.
+
+*Covered in depth in [Cost Management at MG scope](/posts/cost-management-mg-scope-finops/).*
+
+#### 23. Managed HSM {#node-hsm}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-hsm-light.svg?v=4" alt="Managed HSM (dedicated instance, FIPS 140-3 Level 3) and its three sovereignty guarantees: a customer-held Security domain (root of trust, 3-key quorum), Non-exportable keys (neither Microsoft nor the operator can extract), and Purge protection (no early delete, even by Microsoft). The non-exportable customer-managed keys back CMK for storage and compute encryption in the Confidential Isolated MG." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-hsm-dark.svg?v=4" alt="Managed HSM (dedicated instance, FIPS 140-3 Level 3) and its three sovereignty guarantees: a customer-held Security domain (root of trust, 3-key quorum), Non-exportable keys (neither Microsoft nor the operator can extract), and Purge protection (no early delete, even by Microsoft). The non-exportable customer-managed keys back CMK for storage and compute encryption in the Confidential Isolated MG." loading="lazy" decoding="async" />
+</figure>
+
+A **dedicated, FIPS 140-3 Level 3** validated key store — its own instance, isolated from every other Azure customer's — backing the sovereign Layer-4 and Layer-3 encryption requirements. Its keys are **non-exportable** — they never leave the HSM boundary in plaintext, and neither Microsoft nor the platform operator can extract the key material; the boundary is enforced by the hardware and the confidential-computing enclave, not by policy. The [Confidential Isolated MG](#node-mg) references HSM-held customer-managed keys for storage and compute encryption.
+
+What makes it *sovereign* is the **security domain** — a customer-held root of trust. Activation requires the customer to supply at least three RSA key pairs and a quorum; the HSM seals its security domain to them, and Microsoft has no way to recover it — without it, no one, Microsoft included, can access the keys. **Purge protection** closes the other end: once set, not even Microsoft can permanently delete the HSM or its keys before the retention window elapses.
+
+*Covered in depth in [Sovereign controls with Managed HSM](/posts/sovereign-controls-managed-hsm/).*
+
+### Layer 5 — Assurance
+
+#### 24. Delivery Pipeline in Audit Mode {#node-audit-mode}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-audit-mode-light.svg?v=7" alt="Delivery Pipeline in Audit Mode: the platform's delivery pipeline, run read-only (apply nothing), fans into five read activities — four non-mutating twins (terraform plan, EPAC plan, Config -WhatIf across Graph, workload, and admin APIs, and Azure Policy audit effects) plus Discovery, a read/write-agnostic peer whose source tree (API metadata from Graph and ARM specs, Roadmap, and Message Center) yields a new/changed surface, where a new read API makes a setting auditable and a new write API makes it deployable. All four twins and the new/changed surface funnel into a single Drift signal, which starts the operating-loop decision: integrate, revert, log the gap, or adopt a newly available API." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-audit-mode-dark.svg?v=7" alt="Delivery Pipeline in Audit Mode: the platform's delivery pipeline, run read-only (apply nothing), fans into five read activities — four non-mutating twins (terraform plan, EPAC plan, Config -WhatIf across Graph, workload, and admin APIs, and Azure Policy audit effects) plus Discovery, a read/write-agnostic peer whose source tree (API metadata from Graph and ARM specs, Roadmap, and Message Center) yields a new/changed surface, where a new read API makes a setting auditable and a new write API makes it deployable. All four twins and the new/changed surface funnel into a single Drift signal, which starts the operating-loop decision: integrate, revert, log the gap, or adopt a newly available API." loading="lazy" decoding="async" />
+</figure>
+
+The first line of assurance isn't a third-party scanner — it is the platform's own [delivery pipeline](#node-pipeline), run with its write half removed. Because every layer is deployed from code, each apply step has a non-mutating twin that reads the live estate and changes nothing. Run only those halves and the pipeline stops deploying and starts reporting: it becomes a drift detector that shows exactly where production has diverged from the repo. That inversion is why audit mode sits in Assurance even though every moving part is Delivery machinery — the same code, service connections, and [runners](#node-runners) that deploy. It is the delivery pipeline choosing not to write.
+
+It sits deliberately between the inline read-after-write below it and the standalone assessors above it, and is narrower than either. It is not that inline read-after-write — the GET-after-PATCH self-check a live apply runs to confirm a write landed, which stays a Delivery (L1) function. And it is not the standalone assessors — [TCM](#node-utcm), [Maester](#node-maester), the [Zero Trust Assessment](#node-zta) — which observe and report without ever touching the delivery toolchain. Audit mode is the middle ground: the deploy tooling itself, pointed at production read-only.
+
+Four read activities fan out from that run, one per delivery mechanism. [`terraform plan`](#node-terraform) diffs declared state against what is deployed; EPAC's `Build-DeploymentPlans` computes the policy desired-state delta; and the [config-as-code channel's `-WhatIf`](#node-apis) — across Graph and the workload and admin APIs — publishes a change report. [Azure Policy](#node-epac) supplies the fourth, the continuous engine-side complement to EPAC's plan-time compute: assignments with `audit` and `auditIfNotExists` effects mark non-compliance without blocking or changing anything, and `deployIfNotExists` assignments contribute the same signal on the periodic evaluation, where the engine flags but takes no action (their remediation is a separate, gated step). That evaluation re-runs about every twenty-four hours and reflects a resource change within roughly fifteen minutes, so drift surfaces between pipeline runs as well as during them. Each of the four reads the live estate and applies nothing.
+
+A fifth read activity shares that run, with a different job. Where the twins compare existing config against the repo, **discovery** hunts for surface the repo can't yet target — it is read/write agnostic, chasing new and changed API surface for its own sake, whatever the verb. It fans to three sources — API metadata (diffed from Graph and ARM specs), the roadmap (what is shipping), and the Message Center (what is changing or being retired) — which resolve into a *new / changed surface*, sorted by shape: a new *read* API is something audit can now watch; a new *write* API is something the pipeline can now set.
+
+The four twins and that new/changed surface converge on a single **drift signal**, and the signal itself — not any one tool — is what starts the [operating loop's](#operating-loop) decision. Twin drift resolves three ways: integrate it into code, revert it through the pipeline, or log it as an accepted gap in the [Known-gaps register](#known-gaps) — the explicit list of what isn't enforced as code and why. Discovery adds the fourth: adopt a newly writable API as a fresh config-as-code target back in the [config-as-code channel](#node-apis) — closing the loop. Where that API answers an entry already on the Known-gaps register, adopting it clears the record: the register loses entries here as fast as the log-gap branch adds them, and what the platform governs as code grows as fast as Microsoft ships the APIs to do it. Audit keeps the declared state honest; discovery keeps its *scope* honest.
+
+<span id="known-gaps">**The Known-gaps register**</span> holds two kinds of entry, and which kind a setting lands in turns on what audit can read — the wider of the two axes, since what the platform can *see* and what it can *set* are independent. The first is GET-only: a readable API but no writable one, so the pipeline can't set it as code and it stays on the register for the *write* gap, though a GET still catches it drifting. The second is dark: no readable API at all — no GET, no diff, no drift signal — carried by definition rather than by discovery, and held by the manual controls tracked there. Discovery moves entries between the two: a new *read* API promotes a dark entry to GET-only, where its drift becomes observable even before it can be set as code; a new *write* API is the exit, clearing a GET-only entry off the register for good. An entry can walk the whole path — dark, then observable, then gone.
+
+That invisible remainder still has to be held to account, and two moves cover it. Where the intent can be reached another way, a **compensating control** imposes it through a setting that *is* controllable. *(For example, the same effect as the portal-only idle-session-timeout toggle comes from a [Conditional Access](#node-ca) session control — `persistentBrowser=never` with a sign-in frequency — which the pipeline both reads and writes.)* Where no such lever exists, the setting is named in the Known-gaps register with the reason it can't be code, the manual procedure that sets it, and a monitor wherever even a read exists. The dark surface becomes a bounded, owned list: the one part of the estate the pipeline can't see is the part it accounts for by hand.
+
+The drift twins and the discovery sweep run at different maturities. The twins run today — the plan step ahead of an approved apply, and the declared-vs-deployed compares; standing them up as a scheduled, apply-nothing sweep across the whole toolchain — the `terraform plan -detailed-exitcode` model, a full policy-compliance scan — and wiring the discovery sweep beside them is design intent, not yet the deployed state.
+
+*Covered in depth in [Plan/apply for PowerShell + Graph](/posts/powershell-graph-plan-apply/) (the Graph/PowerShell plan-apply channel) and [Terraform declared-vs-deployed compare](/posts/terraform-declared-vs-deployed/) (the Terraform declared-vs-deployed compare).*
+
+#### 25. Tenant Configuration Management (TCM) APIs {#node-utcm}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-utcm-light.svg?v=7" alt="Tenant Configuration Management (TCM) APIs fanning out to the six covered workloads (Entra ID, Defender XDR, Exchange Online, Intune, Purview, Teams), the 200+ resource types, the six-hour configurationMonitor drift cycle, and the five-level priority tooling matrix." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-utcm-dark.svg?v=7" alt="Tenant Configuration Management (TCM) APIs fanning out to the six covered workloads (Entra ID, Defender XDR, Exchange Online, Intune, Purview, Teams), the 200+ resource types, the six-hour configurationMonitor drift cycle, and the five-level priority tooling matrix." loading="lazy" decoding="async" />
+</figure>
+
+The Tenant Configuration Management (TCM) APIs are Microsoft's strategic, generally-available Microsoft Graph surface for M365 tenant configuration-as-code (the wrapping Entra Tenant Governance portal experience is still in preview). They cover six workloads — Entra ID, Defender XDR, Exchange Online, Intune, Purview, and Teams — across more than two hundred resource types. The `configurationMonitor` API watches deployed state and emits drift signals on a six-hour cycle, scoped to a quota of thirty monitors per tenant and eight hundred resources per day, with seven-day snapshot retention (resolved drifts clear after thirty days).
+
+The TCM APIs are generally available but do not yet cover every M365 surface a tenant needs to govern. The platform's tooling matrix runs at five priority levels: TCM is the strategic primary where coverage exists; Terraform with AVM modules handles Azure-side IaC; Microsoft Graph + PowerShell SDK fills the gaps where TCM is still read-only; community frameworks (EntraOps for principal classification, EPAC for policy-as-code) cover gaps the Microsoft-supplied tools don't; M365DSC is kept as a backup / compliance-snapshot tool only — no longer primary deploy.
+
+What TCM doesn't yet cover: portal-only settings (idle session timeout, group creation controls, Copilot data-access scope), audit log search permissions (no automation — manual role assignment), and self-service purchases (limited automation via `MSCommerce` PowerShell). Each of these is on the gap list for slice-posts to deep-dive. The broader M365-workload hardening matrix that catalogs these surfaces — Exchange Online, Teams, SharePoint, the M365 Admin Center — is its own deep-dive.
+
+A note on layering: TCM appears in Layer 5 (Assurance) here because today it is read-only — it observes config and flags drift. Once its write/apply coverage ships, it becomes a Layer 1 (Delivery) config-as-code mechanism, and the map moves it accordingly. The APIs are generally available; it is this read-only-for-now state, not maturity, that keeps it in Assurance rather than Delivery. The delivery pipeline is the mirror image — run read-only it becomes the audit-mode drift check of [Delivery Pipeline in Audit Mode](#node-audit-mode); that read-after-write stays a Delivery (L1) function, distinct from the continuous L5 monitoring that TCM, Maester, and the Zero Trust Assessment run above it, and whatever has no writable API is what the [Known-gaps register](#known-gaps) tracks — most of it still readable, so TCM and the audit-mode plan keep catching drift on it, and only the un-readable remainder escapes detection entirely.
+
+*Covered in depth in [TCM: concept & primitives](/posts/utcm-concept-and-primitives/), [TCM drift detection at scale](/posts/utcm-drift-detection-at-scale/), [TCM vs M365DSC vs EPAC](/posts/utcm-vs-m365dsc-vs-epac/), [Entra tenant hardening matrix](/posts/m365-tenant-hardening-matrix/) (the workload hardening matrix).*
+
+#### 26. Maester {#node-maester}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-maester-light.svg?v=2" alt="Maester shown as a left-to-right flow: a column of test packs — Maester core, EIDSCA, CISA SCuBA, CIS Microsoft 365, ORCA, and the platform's Custom tests (built-in plus custom) — converges into the Maester engine (open-source PowerShell + Pester, run on a schedule from the security-org assessments pipeline), which produces Output: test results plus an HTML report, with findings surfacing run over run." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-maester-dark.svg?v=2" alt="Maester shown as a left-to-right flow: a column of test packs — Maester core, EIDSCA, CISA SCuBA, CIS Microsoft 365, ORCA, and the platform's Custom tests (built-in plus custom) — converges into the Maester engine (open-source PowerShell + Pester, run on a schedule from the security-org assessments pipeline), which produces Output: test results plus an HTML report, with findings surfacing run over run." loading="lazy" decoding="async" />
+</figure>
+
+The community, open-source PowerShell + Pester framework that asserts tenant security posture against hundreds of built-in checks — Maester's own tests plus the EIDSCA (Entra ID security configuration), CISA SCuBA, CIS Microsoft 365, and ORCA (Exchange Online) packs — spanning identity, access, devices, and apps: Conditional Access, authentication methods, privileged access, app consent, device settings. It runs on a schedule from the platform security org's assessments pipeline; each run publishes its results as pipeline test results plus an HTML report, and a failed check lands as a finding rather than breaking the run, so a regression surfaces run over run.
+
+On top of those packs the platform runs its own **custom Maester tests** — an engagement-specific set asserting the reference platform's particular controls, executed by the same Maester engine in the same scheduled run. That custom suite gets its own deep-dive, and it stays a distinct artifact from Maester itself: Maester is the open-source engine, the custom tests are the platform's. Keeping the two separate matters so the tool and the tests aren't conflated.
+
+*Covered in depth in [Tenant security validation pipeline](/posts/tenant-validation-pester-suite/).*
+
+#### 27. Zero Trust Assessment {#node-zta}
+
+<figure class="ta-diagram">
+  <img class="ta-diagram-light nozoom" src="/img/diagrams/m1-node-zta-light.svg?v=1" alt="Zero Trust Assessment shown as a left-to-right flow: a column of Zero Trust pillars — Identity, Devices, Network, and Data — feeds the Zero Trust Assessment engine (the open-source Microsoft module, a second, independent posture read), which produces Output: an assessment report plus a tenant-state snapshot." loading="lazy" decoding="async" />
+  <img class="ta-diagram-dark nozoom" src="/img/diagrams/m1-node-zta-dark.svg?v=1" alt="Zero Trust Assessment shown as a left-to-right flow: a column of Zero Trust pillars — Identity, Devices, Network, and Data — feeds the Zero Trust Assessment engine (the open-source Microsoft module, a second, independent posture read), which produces Output: an assessment report plus a tenant-state snapshot." loading="lazy" decoding="async" />
+</figure>
+
+The open-source Microsoft Zero Trust Assessment module — a second, independent read on posture alongside [Maester](#node-maester), framed against the Zero Trust pillars (Identity, Devices, Network, Data) rather than compliance baselines. Where it overlaps Maester on the Identity pillar the two cross-check each other; its distinct contribution is that pillar framing and the Network and Devices coverage Maester is thinner on. It runs in the same security-org assessments pipeline.
+
+Running it there is best-effort today: the ZTA-pipeline integration has its own deep-dive, and wiring the upstream module into headless CI surfaces real blockers — OIDC/token-cache limits and module-prerequisite gaps — which a companion post covers, so its reliable yield right now is ZTA's tenant-state snapshot rather than a full passing run. Both sit in the Assurance layer because, like the rest of L5, they *observe and report* — they do not deliver.
+
+*Covered in depth in [Zero Trust Assessment pipelines](/posts/zero-trust-assessment-pipelines/), [ZTA in CI: upstream blockers](/posts/zta-ci-blockers/).*
 
 ## Wrap-up
 
 This post is the map. Each slice-post is the territory of one node — the depth, the runnable code, the design trade-offs, the pitfalls. The map doesn't replace the territory; it lets you navigate between territories without losing context.
 
-The diagram and the dependency map will evolve as the reference platform evolves and as new slice-posts land. Any time a forthcoming slice-post above ships, it's worth coming back to this one to walk the relevant node and check that the picture still holds. The discipline of keeping one canonical map — not letting it splinter across slice-posts — is the same discipline that keeps a platform manageable at scale.
+The reference platform is a fixed composite, defined once for this series, and this map is its canonical view — the one place the whole picture lives. The slice-posts are the roads through it: each takes a single node here and builds it out into its full deep-dive. Each of those deep-dives links directly back to its node on this map, so from any post you are one hop from here — where that piece sits back in the whole. One canonical map, kept whole, is the discipline that keeps a platform manageable at scale.
 
 ## References
 
-- Microsoft Learn — [Azure Landing Zone reference architecture](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/)
-- Microsoft Learn — [Microsoft Cloud Adoption Framework (CAF)](https://learn.microsoft.com/azure/cloud-adoption-framework/)
-- Microsoft Learn — [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
-- Microsoft Learn — [Conditional Access authentication context](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps#authentication-context)
-- Microsoft Learn — [Unified Tenant Configuration Management (UTCM)](https://learn.microsoft.com/graph/unified-tenant-configuration-management-concept-overview)
-- Microsoft Learn — [Workspace Manager for Microsoft Sentinel](https://learn.microsoft.com/azure/sentinel/workspace-manager)
-- Microsoft Learn — [Microsoft Cloud Security Benchmark v2](https://learn.microsoft.com/security/benchmark/azure/)
-- Microsoft Learn — [Azure Lighthouse cross-tenant management](https://learn.microsoft.com/azure/lighthouse/overview)
-- Microsoft Learn — [Sentinel Data Lake](https://learn.microsoft.com/azure/sentinel/datalake/overview)
+Microsoft Learn documentation, plus the open-source projects and baselines the reference platform builds on — grouped by layer.
+
+**Identity & access**
+
+- [Privileged Identity Management (PIM)](https://learn.microsoft.com/entra/id-governance/privileged-identity-management/pim-configure)
+- [Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/overview)
+- [Conditional Access authentication context](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps#authentication-context)
+- [Conditional Access authentication strengths](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths)
+- [Conditional Access for workload identities](https://learn.microsoft.com/entra/identity/conditional-access/workload-identity)
+- [Protected actions in Microsoft Entra ID](https://learn.microsoft.com/entra/identity/role-based-access-control/protected-actions-overview)
+- [Authentication methods policy](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage)
+- [Temporary Access Pass (TAP)](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass)
+- [Passkeys (FIDO2) and AAGUID key restrictions](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2)
+- [Administrative units](https://learn.microsoft.com/entra/identity/role-based-access-control/administrative-units)
+- [Global Secure Access](https://learn.microsoft.com/entra/global-secure-access/overview-what-is-global-secure-access)
+- [Securing privileged access (PAW)](https://learn.microsoft.com/security/privileged-access-workstations/overview)
+
+**Delivery & policy-as-code**
+
+- [Workload identity federation](https://learn.microsoft.com/entra/workload-id/workload-identity-federation)
+- [Workload identity federation for Azure DevOps](https://learn.microsoft.com/azure/devops/pipelines/release/configure-workload-identity?view=azure-devops)
+- [Access Azure DevOps with Microsoft Entra workload identity](https://learn.microsoft.com/azure/devops/pipelines/library/add-devops-entra-service-connection?view=azure-devops)
+- [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
+- [Subscription vending (Cloud Adoption Framework)](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/design-area/subscription-vending)
+- [Azure Policy — deployIfNotExists effect](https://learn.microsoft.com/azure/governance/policy/concepts/effect-deploy-if-not-exists)
+- [Azure Policy — audit / auditIfNotExists effects](https://learn.microsoft.com/azure/governance/policy/concepts/effect-audit-if-not-exists)
+- [Azure Policy — get compliance data (evaluation)](https://learn.microsoft.com/azure/governance/policy/how-to/get-compliance-data)
+- [Azure Container Instances](https://learn.microsoft.com/azure/container-instances/container-instances-overview)
+- [Azure Arc-enabled servers](https://learn.microsoft.com/azure/azure-arc/servers/overview)
+- [Enterprise Policy as Code (EPAC)](https://github.com/Azure/enterprise-azure-policy-as-code)
+- [Azure Monitor Baseline Alerts (AMBA)](https://github.com/Azure/azure-monitor-baseline-alerts)
+
+**Security operations**
+
+- [Microsoft Sentinel — deploy content as code (Repositories)](https://learn.microsoft.com/azure/sentinel/ci-cd)
+- [Microsoft Sentinel — Workspace Manager](https://learn.microsoft.com/azure/sentinel/workspace-manager)
+- [Microsoft Sentinel — transition to the Defender portal](https://learn.microsoft.com/azure/sentinel/move-to-defender)
+- [Microsoft Sentinel — data lake](https://learn.microsoft.com/azure/sentinel/datalake/overview)
+- [Microsoft Defender XDR — Unified RBAC](https://learn.microsoft.com/defender-xdr/manage-rbac)
+- [Microsoft Defender for Cloud — regulatory compliance](https://learn.microsoft.com/azure/defender-for-cloud/regulatory-compliance-dashboard)
+- [Microsoft Cloud Security Benchmark v2](https://learn.microsoft.com/security/benchmark/azure/)
+- [Data collection rules (Azure Monitor)](https://learn.microsoft.com/azure/azure-monitor/data-collection/data-collection-rule-overview)
+- [Kusto Query Language (KQL)](https://learn.microsoft.com/kusto/query/)
+
+**Landing zone & substrate**
+
+- [Azure Landing Zone reference architecture](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/)
+- [Microsoft Cloud Adoption Framework (CAF)](https://learn.microsoft.com/azure/cloud-adoption-framework/)
+- [Azure management groups](https://learn.microsoft.com/azure/governance/management-groups/overview)
+- [Azure Key Vault Managed HSM (FIPS 140-3 Level 3)](https://learn.microsoft.com/azure/key-vault/managed-hsm/overview)
+- [Hub-and-spoke network topology](https://learn.microsoft.com/azure/networking/design-guide/hub-spoke)
+- [Azure Firewall](https://learn.microsoft.com/azure/firewall/overview)
+- [Log Analytics workspace](https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-workspace-overview)
+- [Microsoft Cost Management](https://learn.microsoft.com/azure/cost-management-billing/costs/overview-cost-management)
+- [Azure Lighthouse cross-tenant management](https://learn.microsoft.com/azure/lighthouse/overview)
+
+**Configuration & assessment tooling**
+
+- [Microsoft Graph](https://learn.microsoft.com/graph/overview)
+- [Tenant Configuration Management (TCM) APIs](https://learn.microsoft.com/graph/unified-tenant-configuration-management-concept-overview)
+- [Maester](https://maester.dev)
+- [Microsoft Zero Trust Assessment](https://github.com/microsoft/zerotrustassessment)
+- [EntraOps](https://github.com/Cloud-Architekt/EntraOps)
+- [Microsoft365DSC](https://microsoft365dsc.com)
+- [CISA ScubaGear (SCuBA baselines)](https://github.com/cisagov/ScubaGear)
+- [CIS Microsoft 365 Foundations Benchmark](https://www.cisecurity.org/benchmark/microsoft_365)
+- [EIDSCA — Entra ID Security Config Analyzer](https://github.com/Cloud-Architekt/AzureAD-Attack-Defense/blob/main/AADSecurityConfigAnalyzer.md)

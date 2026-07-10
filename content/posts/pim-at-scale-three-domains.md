@@ -245,7 +245,7 @@ The activation durations matter — too short and operators thrash; too long and
 
 A further refinement worth flagging here, even though the worked example lives in the reference-platform section: the two-tier shape above applies *uniformly* per role. Some (role, scope) tuples warrant promotion above the table — a Contributor at a child subscription isn't the same risk as the same role at a tier-0 management group; a Sentinel Contributor on a security-tier MG is admin work, not operator work. A small classifier function over (role, scope) tuples extends this two-tier model into per-(role, scope) tiering without changing the gate or the API. The reference-platform section shows the implementation.
 
-### PIM-for-Groups — the two-layer pattern, and the Member-vs-Owner trap
+### PIM-for-Groups — the two-layer pattern, and the Member-vs-Owner trap {#member-vs-owner-trap}
 
 PIM-for-Groups is the third management area, and its use cases reach beyond Azure resource roles. The pattern shows up wherever a privilege binding lives outside PIM's direct reach — anywhere a system uses group claims or group membership as the authorisation surface:
 

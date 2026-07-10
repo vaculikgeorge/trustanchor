@@ -3,6 +3,8 @@
   Only change vs upstream: the order is reshuffled so the Subscribe block
   (extend-footer.html) renders ABOVE the copyright / theme-attribution row.
   That puts the © / Hugo & Blowfish line at the true bottom of the page.
+  (The master SVG diagram has nozoom and uses the dedicated pan/zoom overlay
+  in extend-footer.html instead of medium-zoom.)
 */}}
 <footer id="site-footer" class="py-10 print:hidden">
   {{/* Footer menu */}}
@@ -42,7 +44,8 @@
 
   {{/* Subscribe block — moved here so it sits ABOVE the copyright row. */}}
   {{ if templates.Exists "partials/extend-footer.html" }}
-    {{ partialCached "extend-footer.html" . }}
+    {{/* Variant on .Kind so the 404 can suppress the visible subscribe box (it has its own). */}}
+    {{ partialCached "extend-footer.html" . .Kind }}
   {{ end }}
 
   {{/* Copyright + theme attribution — the true bottom of the page. */}}

@@ -5,6 +5,8 @@
   cross-origin request (CORS), falls back to opening the subscribe page
   in a new tab instead of redirecting away from the current post.
 */}}
+{{/* 404 renders its own subscribe box in-page, so skip this site-wide one there (avoids a duplicate). */}}
+{{ if ne .Kind "404" }}
 <div id="subscribe" class="mt-6 mb-4 mx-auto max-w-md text-center" data-bd-wrapper>
   <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
     Subscribe by email
@@ -29,6 +31,7 @@
     Prefer a reader? <a href="{{ "/index.xml" | relLangURL }}" class="hover:underline">RSS feed</a>.
   </div>
 </div>
+{{ end }}
 <script>
 (function () {
   function initBd(form) {
@@ -104,10 +107,47 @@
 </script>
 
 {{/*
-  Mermaid click-to-zoom — fullscreen overlay with real pan/zoom via
-  svg-pan-zoom (lazy-loaded from jsDelivr on first click). Drag to pan,
-  scroll to zoom, pinch on touch, +/- buttons via svg-pan-zoom's built-in
-  controls. CSS lives in assets/css/custom.css (Mermaid click-to-zoom).
+  Mobile TOC dropdown behaviour (<=1023px, where the TOC is a sticky <details>):
+  fold it when a TOC link is tapped or when the reader taps outside it, and take
+  over the scroll so it lands AFTER the fold (respecting scroll-margin-top).
+  Desktop (sidebar TOC) is left untouched.
+*/}}
+<script>
+(function () {
+  var mq = window.matchMedia('(max-width: 1023px)');
+  function openToc() {
+    return document.querySelector('.ta-toc-col .toc-inside[open]');
+  }
+  document.addEventListener('click', function (e) {
+    if (!mq.matches) return;
+    var link = e.target.closest('.ta-toc-col a[href^="#"]');
+    if (link) {
+      var toc = link.closest('details.toc-inside') || document.querySelector('.ta-toc-col .toc-inside');
+      var id = decodeURIComponent((link.getAttribute('href') || '').slice(1));
+      var target = id && document.getElementById(id);
+      if (toc) toc.open = false;                 /* fold the dropdown */
+      if (target) {
+        e.preventDefault();                        /* scroll ourselves, after the fold */
+        requestAnimationFrame(function () {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (history.replaceState) history.replaceState(null, '', '#' + id);
+        });
+      }
+      return;
+    }
+    var open = openToc();                          /* tap outside closes it */
+    if (open && !e.target.closest('.ta-toc-col')) open.open = false;
+  });
+}());
+</script>
+
+{{/*
+  Click-to-zoom — fullscreen overlay with real pan/zoom via svg-pan-zoom
+  (lazy-loaded from jsDelivr on first click). Drag to pan, scroll to zoom,
+  pinch on touch, +/- buttons via svg-pan-zoom's built-in controls.
+  Applies to Mermaid blocks (pre.mermaid) AND the master SVG diagram
+  (.ta-diagram img — fetched + inlined on click). CSS in
+  assets/css/custom.css (Mermaid click-to-zoom).
 */}}
 <script>
 (function () {
@@ -226,10 +266,38 @@
     });
   }
 
-  /* Event delegation: handler attaches once, fires for any current or
-     future <pre class="mermaid"> that picks up a rendered <svg>. */
+  /* Master diagram is an <img> to a static SVG file — fetch it once,
+     inline it, and feed the same overlay + svg-pan-zoom as Mermaid. */
+  var svgFetchCache = {};
+  function openImgZoom(img) {
+    var src = img.currentSrc || img.src;
+    if (!src) return;
+    if (svgFetchCache[src]) { openZoom(svgFetchCache[src]); return; }
+    fetch(src).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (text) {
+      var svg = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
+      if (!svg || svg.nodeName.toLowerCase() !== 'svg') throw new Error('parsed node is not <svg>');
+      svgFetchCache[src] = svg;
+      openZoom(svg);
+    }).catch(function (err) {
+      console.error('[diagram-zoom] could not load SVG; opening in new tab:', err);
+      window.open(src, '_blank', 'noopener');
+    });
+  }
+
+  /* Event delegation: one handler for both Mermaid blocks and the master
+     SVG diagram; fires for any current or future target. */
   document.addEventListener('click', function (e) {
     if (e.target.closest('.mermaid-zoom-overlay')) return;
+    /* Master SVG diagram (img-based) — fetch + inline, then pan/zoom. */
+    var diagImg = e.target.closest('.ta-diagram img');
+    if (diagImg) {
+      e.preventDefault();
+      openImgZoom(diagImg);
+      return;
+    }
     var pre = e.target.closest('pre.mermaid');
     if (!pre) return;
     var svg = pre.querySelector('svg');
@@ -254,6 +322,14 @@
       hint.className = 'mermaid-zoom-hint';
       hint.textContent = 'click to zoom';
       pre.appendChild(hint);
+    });
+    document.querySelectorAll('.ta-diagram').forEach(function (fig) {
+      if (fig.dataset.zoomHinted) return;
+      fig.dataset.zoomHinted = '1';
+      var hint = document.createElement('span');
+      hint.className = 'mermaid-zoom-hint';
+      hint.textContent = 'click to zoom';
+      fig.appendChild(hint);
     });
   }
   if (document.readyState === 'loading') {

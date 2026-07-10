@@ -4,6 +4,7 @@
   remain bordered panels (cells).
     Row 1   Brand + thesis pitch — open, spans the full content width
     Row 2   Author panel (cell, narrower)
+    Row 2b  Two featured posts (thesis + reference-platform map) — big panels
     Row 3   Four category panels (cells)
     Row 4   Recent posts (Blowfish partial)
 */}}
@@ -12,7 +13,7 @@
   (dict "slug" "identity-privileged-access" "label" "Identity & Privileged Access")
   (dict "slug" "secure-delivery"            "label" "Secure Delivery")
   (dict "slug" "security-ops"               "label" "Security Operations")
-  (dict "slug" "lz-architecture"            "label" "Landing Zone Architecture")
+  (dict "slug" "landing-zones"              "label" "Landing Zones")
 }}
 
 <article class="ta-home flex flex-col">
@@ -98,6 +99,27 @@
       <span class="ta-cert-year">Earned 2024</span>
     </a>
 
+  </section>
+
+  {{/* ── Row 2b: two featured foundation posts — the argument (thesis) + the map (overview) ── */}}
+  {{ $features := slice
+    (dict "path" "/posts/trust-anchor-thesis/" "eyebrow" "The argument")
+    (dict "path" "/posts/reference-platform-architecture-overview/" "eyebrow" "The map")
+  }}
+  <section class="ta-section-heading">
+    <h2>Start here</h2>
+  </section>
+  <section class="ta-grid-2 w-full">
+    {{ range $features }}
+      {{ $eyebrow := .eyebrow }}
+      {{ with site.GetPage .path }}
+        <a class="ta-panel ta-panel-feature" href="{{ .RelPermalink }}">
+          <div class="ta-feature-label">{{ $eyebrow }}</div>
+          <h3 class="ta-feature-title">{{ .Title }}</h3>
+          {{ with .Summary }}<p class="ta-feature-desc">{{ . | plainify | truncate 240 }}</p>{{ end }}
+        </a>
+      {{ end }}
+    {{ end }}
   </section>
 
   {{/* ── Row 3: four category panels (cells) ── */}}

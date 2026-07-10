@@ -1,18 +1,163 @@
 {{ define "main" }}
+{{/*
+  Trust Anchor — 404.
+  Voice: deploy-queue ("queued, not yet deployed") — a missing deep-dive is coming, not broken.
+  Live triangulation: the inline script reads the requested /posts/<slug>/ path, names the exact
+  post, and deep-links to that post's node on the reference-platform map. Unknown slugs fall back
+  to a prettified title + the generic map link. Progressive enhancement — the generic view is
+  rendered server-side and works with JS off.
+  Channels: LinkedIn + RSS buttons, then the site's existing Buttondown subscribe form below them.
+  The footer's extend-footer.html script binds every form[action*="embed-subscribe"] on the page,
+  so this form gets the same inline "check your inbox" confirmation for free. No id="subscribe"
+  here — the footer block owns that id.
+*/}}
+{{ $map := "/posts/reference-platform-architecture-overview/" | relLangURL }}
 <section class="flex flex-col items-center justify-center my-24 text-center">
-  <h1 class="text-7xl font-extrabold text-neutral-800 dark:text-neutral-200">404</h1>
-  <h2 class="text-2xl mt-4 font-semibold text-neutral-700 dark:text-neutral-300">Page not found</h2>
-  <p class="my-6 max-w-xl mx-auto text-neutral-600 dark:text-neutral-400">
-    Pages here gate human access. This one doesn't have that scope —
-    you've stepped outside the perimeter.
+  {{/* Sizes inline: Blowfish's Tailwind build purges text-6xl/7xl+, so size classes above 4xl have no effect. */}}
+  <div class="mb-2" aria-hidden="true" style="font-size:5rem;line-height:1;">&#9875;</div>
+  <h1 class="font-extrabold text-neutral-800 dark:text-neutral-200" style="font-size:7rem;line-height:1;">404</h1>
+  <h2 class="text-2xl mt-4 font-semibold text-neutral-700 dark:text-neutral-300">Queued, not yet deployed</h2>
+
+  <p id="ta-404-headed" class="mt-5 text-lg text-neutral-600 dark:text-neutral-400" hidden>
+    You were headed for <span id="ta-404-title" class="font-semibold text-primary-500"></span>.
   </p>
-  <p class="max-w-xl mx-auto text-neutral-600 dark:text-neutral-400">
-    Try the
-    <a href="{{ "/" | relLangURL }}" class="text-primary-500 hover:underline">homepage</a>,
-    the
-    <a href="{{ "/categories/" | relLangURL }}" class="text-primary-500 hover:underline">categories index</a>,
+
+  <p class="my-5 max-w-xl mx-auto text-neutral-600 dark:text-neutral-400">
+    It's a node on the reference-platform map that hasn't shipped yet. Think of it as
+    sitting in the deploy queue — the pipeline just hasn't promoted it to prod.
+  </p>
+
+  <p class="mb-6">
+    <a id="ta-404-node" href="{{ $map }}" class="text-primary-500 font-semibold hover:underline">
+      See where it sits on the map &rarr;
+    </a>
+  </p>
+
+  <p class="mb-8 max-w-xl mx-auto text-sm text-neutral-500 dark:text-neutral-400">
+    Or, in this blog's terms: you've stepped outside the perimeter, and this scope isn't granted yet.
+  </p>
+
+  <p class="text-neutral-700 dark:text-neutral-300 font-medium">Follow along — or get new posts in your inbox:</p>
+  <div class="flex flex-row flex-wrap gap-3 justify-center mt-3">
+    <a href="https://www.linkedin.com/in/vaculikgeorge" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-500 transition-colors">
+      <svg viewBox="0 0 448 512" class="w-4 h-4" aria-hidden="true"><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+      Follow on LinkedIn
+    </a>
+    <a href="{{ "/index.xml" | relLangURL }}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-500 transition-colors">
+      <svg viewBox="0 0 448 512" class="w-4 h-4" aria-hidden="true"><path fill="currentColor" d="M0 64C0 46.3 14.3 32 32 32c229.8 0 416 186.2 416 416c0 17.7-14.3 32-32 32s-32-14.3-32-32C384 253.6 226.4 96 32 96C14.3 96 0 81.7 0 64zM128 416c0 35.3-28.7 64-64 64s-64-28.7-64-64s28.7-64 64-64s64 28.7 64 64zM32 160c159.1 0 288 128.9 288 288c0 17.7-14.3 32-32 32s-32-14.3-32-32c0-123.7-100.3-224-224-224c-17.7 0-32-14.3-32-32s14.3-32 32-32z"/></svg>
+      RSS
+    </a>
+  </div>
+
+  {{/* Email — the site's existing Buttondown module (footer script binds this form too). */}}
+  <div id="subscribe" data-bd-wrapper class="mt-6 mx-auto w-full max-w-md">
+    <div class="text-sm font-semibold text-neutral-600 dark:text-neutral-400 mb-2">…or subscribe by email</div>
+    <form
+      action="https://buttondown.email/api/emails/embed-subscribe/trustanchor"
+      method="post"
+      class="flex flex-row gap-2 items-stretch justify-center">
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="you@example.com"
+        class="flex-1 min-w-0 px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
+      <button
+        type="submit"
+        style="background-color:#0078D4;color:#ffffff;border-radius:0.375rem;border:none;cursor:pointer;padding:0.5rem 1rem;font-size:0.875rem;font-weight:600;white-space:nowrap;">
+        Subscribe
+      </button>
+    </form>
+    <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+      About 2 posts a month — no marketing, no padding. Confirm with one click in your inbox.
+    </div>
+  </div>
+
+  <p class="mt-10 text-sm text-neutral-500 dark:text-neutral-400">
+    Lost entirely? Try the
+    <a href="{{ "/" | relLangURL }}" class="text-primary-500 hover:underline">homepage</a>
     or the
-    <a href="{{ "/about/" | relLangURL }}" class="text-primary-500 hover:underline">about page</a>.
+    <a href="{{ "/categories/" | relLangURL }}" class="text-primary-500 hover:underline">categories index</a>.
   </p>
+
+  {{/* Author profile — the same card shown on every post. Stands in for the footer
+       subscribe block, which is suppressed on the 404 (see footer.html / extend-footer.html). */}}
+  <div class="mt-10 w-full max-w-xl mx-auto text-left">
+    {{ partial "author.html" . }}
+  </div>
 </section>
+
+<script>
+(function () {
+  {{/* slug -> [canonical title, node anchor on the reference-platform map]. Derived from
+       the per-node "Covered in depth in ..." links in reference-platform-architecture-overview.md;
+       refresh this table when a slice-post is reassigned to a different node. */}}
+  var MAP = "{{ $map }}";
+  var POSTS = {
+    "ado-backup-and-dr": ["ADO backup & DR", "node-ado"],
+    "auth-contexts-in-practice": ["Authentication contexts in practice", "node-ca"],
+    "auth-strengths-vs-auth-contexts": ["Auth strengths vs auth contexts", "node-auth-methods"],
+    "ca-for-ai-agent-identity": ["Conditional Access for AI-agent identities", "node-ca"],
+    "compliance-framework-mapping-dfc": ["Compliance framework mapping in Defender for Cloud", "node-compliance"],
+    "cost-management-mg-scope-finops": ["Cost Management at MG scope", "node-cost"],
+    "cross-tenant-wif-assessment": ["Cross-tenant WIF for assessment pipelines", "node-terraform"],
+    "defender-for-cloud-mg-scope": ["Defender for Cloud at MG scope", "node-dfc"],
+    "defender-portal-migration-march-2027": ["Defender portal migration", "node-dxdr"],
+    "dual-epac-tamper-proof": ["Dual EPAC at MG scope", "node-epac"],
+    "enforce-ca-on-pim-activation": ["Enforcing CA on PIM activation", "node-pim"],
+    "fido2-aaguid-attestation-whitelisting": ["FIDO2 AAGUID attestation allow-listing", "node-aaguid"],
+    "hub-and-spoke-multi-org": ["Hub-and-spoke for multi-org tenants", "node-hub-spoke"],
+    "jit-ado-via-pim-and-ca-auth-contexts": ["JIT ADO access via PIM + CA auth contexts", "node-ado"],
+    "m365-tenant-hardening-matrix": ["Entra tenant hardening matrix", "node-utcm"],
+    "mg-hierarchy-multi-org": ["MG hierarchy for multi-org tenants", "node-mg"],
+    "mg-scope-wif-trap": ["The MG-scoped WIF SubscriptionNotFound trap", "node-terraform"],
+    "multi-region-without-region-mgs": ["Multi-region without region MGs", "node-mg"],
+    "no-pat-ado-agents": ["No-PAT ADO agents on ACI", "node-runners"],
+    "paw-cloud-pc-privileged-access": ["PAW on Cloud PC", "node-paw"],
+    "persona-based-ca-at-scale": ["Persona-based Conditional Access at scale", "node-ca"],
+    "pim-at-scale-three-domains": ["PIM at scale", "node-pim"],
+    "powershell-graph-plan-apply": ["Plan/apply for PowerShell + Graph", "node-apis"],
+    "protected-actions-in-entra": ["Protected Actions in Entra", "node-ca"],
+    "rbac-tenant-isolation": ["RBAC for tenant isolation", "node-au"],
+    "role-assignable-pim-groups-security-boundary": ["Role-assignable PIM groups: the security boundary", "node-pim"],
+    "sentinel-cost-optimization": ["Sentinel cost optimisation", "node-sentinel"],
+    "sentinel-hunting-pim-activations": ["Sentinel hunting for PIM activations", "node-sentinel"],
+    "sovereign-controls-managed-hsm": ["Sovereign controls with Managed HSM", "node-hsm"],
+    "subscription-vending-design": ["Subscription vending design", "node-vending"],
+    "supply-chain-isolation-security-org": ["Supply-chain isolation for security tenants", "node-ado"],
+    "tenant-validation-pester-suite": ["Tenant security validation pipeline", "node-maester"],
+    "terraform-declared-vs-deployed": ["Terraform declared-vs-deployed compare", "node-terraform"],
+    "three-domain-terraform-wif": ["Three-domain Terraform with WIF", "node-terraform"],
+    "three-tier-logging-architecture": ["Three-tier logging architecture", "node-logging"],
+    "utcm-concept-and-primitives": ["TCM: concept & primitives", "node-utcm"],
+    "utcm-drift-detection-at-scale": ["TCM drift detection at scale", "node-utcm"],
+    "utcm-vs-m365dsc-vs-epac": ["TCM vs M365DSC vs EPAC", "node-utcm"],
+    "workspace-manager-sentinel-per-org": ["Workspace Manager: Sentinel per org", "node-sentinel"],
+    "zero-trust-assessment-pipelines": ["Zero Trust Assessment pipelines", "node-zta"],
+    "zta-ci-blockers": ["ZTA in CI: upstream blockers", "node-zta"]
+  };
+
+  var m = (window.location.pathname || "").match(/\/posts\/([a-z0-9-]+)\/?/);
+  if (!m) return;                                         // not a post URL — keep the generic view
+  var slug = m[1];
+  if (slug === "reference-platform-architecture-overview") return; // the map itself exists
+
+  var hit = POSTS[slug], title, node = null;
+  if (hit) { title = hit[0]; node = hit[1]; }
+  else {
+    title = slug.replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  var titleEl = document.getElementById("ta-404-title");
+  var headedEl = document.getElementById("ta-404-headed");
+  if (titleEl && headedEl) { titleEl.textContent = title; headedEl.hidden = false; }
+
+  if (node) {
+    var nodeLink = document.getElementById("ta-404-node");
+    if (nodeLink) nodeLink.setAttribute("href", MAP + "#" + node);
+  }
+})();
+</script>
 {{ end }}
