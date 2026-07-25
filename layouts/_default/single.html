@@ -1,8 +1,12 @@
 {{/*
   Trust Anchor — local override of Blowfish's single.html.
-  Only change vs upstream: sharing-links partial is also rendered at the
-  TOP of the article (right after the header) so readers can share without
-  scrolling to the bottom.
+  Share placement (CSS in assets/css/custom.css):
+    - Desktop (>=1024px): the share row lives in the right-hand TOC sidebar
+      (.ta-toc-share-widget); hidden on mobile, where the TOC is a collapsed
+      dropdown rather than an unwrapped sidebar.
+    - Mobile (<1024px): the share row renders near the bottom of the article
+      (.ta-share-bottom), or — when a post sets showShareBottom = false — via
+      the share shortcode placed just above its References section.
 */}}
 {{ define "main" }}
   {{ .Scratch.Set "scope" "single" }}
@@ -27,8 +31,8 @@
       <h1 class="mt-0 text-4xl font-extrabold text-neutral-900 dark:text-neutral">
         {{ .Title | emojify }}
       </h1>
-      {{/* Trust Anchor — meta line (date / words / reading time / draft badge)
-           sits on the left, Share pill aligned to the right on the same row. */}}
+      {{/* Trust Anchor — meta line: date / words / reading time / draft badge on the
+           left, Share row aligned right on the same row at the top of the article. */}}
       <div class="ta-post-meta-row mt-1 mb-6 print:hidden">
         <div class="ta-post-meta text-base text-neutral-500 dark:text-neutral-400">
           {{ partial "article-meta/basic.html" (dict "context" . "scope" "single") }}
@@ -52,6 +56,10 @@
         <div class="ta-toc-col order-first lg:ms-auto px-0 lg:order-last lg:ps-8 lg:max-w-2xs">
           <div class="toc ps-5 print:hidden lg:sticky {{ $topClass }}">
             {{ partial "toc.html" . }}
+            {{/* Desktop-only share row — CSS hides .ta-toc-share-widget below 1024px. */}}
+            <div class="ta-toc-share-widget">
+              {{ partial "sharing-links.html" . }}
+            </div>
           </div>
         </div>
       {{ end }}
@@ -87,7 +95,14 @@
         {{ end }}
         {{ partial "series/series-closed.html" . }}
 
-        {{ partial "sharing-links.html" . }}
+        {{/* Mobile share row (bottom of article). Hidden on desktop (share is in
+             the TOC) and suppressed entirely when a post places the share
+             shortcode above its References instead (showShareBottom = false). */}}
+        {{ if .Params.showShareBottom | default true }}
+          <div class="ta-share-bottom">
+            {{ partial "sharing-links.html" . }}
+          </div>
+        {{ end }}
 
         {{/* Trust Anchor — tags + categories at the bottom of every post.
              Skips silently if the post has no tags or no categories. */}}

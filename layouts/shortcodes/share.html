@@ -1,0 +1,11 @@
+{{- /*
+  Inline share row — for placing the share buttons at an exact point in the
+  content, e.g. just above a References section. Mobile-only by default: on
+  desktop the share lives in the TOC sidebar (.ta-toc-share-widget), so this is
+  hidden at >=1024px to avoid a duplicate. Pair with showShareBottom = false in
+  the post front matter so the bottom share row does not also render on mobile.
+  Styling: .ta-share-inline in assets/css/custom.css.
+*/ -}}
+<div class="ta-share-inline">
+  {{- partial "sharing-links.html" .Page -}}
+</div>

@@ -312,3 +312,101 @@ pre.mermaid:hover {
 pre.mermaid:hover .mermaid-zoom-hint {
   opacity: 1;
 }
+
+/* -------------------------------------------------------------------------
+   Warning callout — the {{< warning >}} shortcode
+   -------------------------------------------------------------------------
+   An orange "!" caution box for load-bearing caveats. The palette matches
+   the orange used in the Excalidraw diagram zones (#fff7ed / #fb923c, dark
+   #2a1e0a) so the visual language stays consistent across prose and diagrams.
+   Markup lives in layouts/shortcodes/warning.html.
+   ------------------------------------------------------------------------- */
+
+.ta-warning {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin: 1.4rem 0;
+  padding: 0.9rem 1.1rem;
+  background: #fff7ed;
+  border: 1px solid #fb923c;
+  border-left-width: 5px;
+  border-radius: 0.5rem;
+  color: #7c2d12;
+}
+
+.dark .ta-warning {
+  background: #2a1e0a;
+  border-color: #fb923c;
+  color: #fed7aa;
+}
+
+.ta-warning-mark {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: 0.05rem;
+  border-radius: 9999px;
+  background: #fb923c;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.6rem;
+  text-align: center;
+  user-select: none;
+}
+
+.ta-warning-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ta-warning-body > :first-child { margin-top: 0; }
+.ta-warning-body > :last-child { margin-bottom: 0; }
+
+/* -------------------------------------------------------------------------
+   TOC hover-scroll
+   -------------------------------------------------------------------------
+   The theme's #TOCView carries Tailwind `overscroll-contain`
+   (overscroll-behavior: contain), which traps the mouse wheel inside the
+   TOC's scroll container and stops the page from scrolling while the cursor
+   is over it. Let the scroll chain back to the page. This only affects the
+   TOC's own vertical overscroll — it does NOT touch the horizontal
+   overflow-x scrolling of wide tables or `.ta-diagram` figures (different
+   elements, different axis).
+   ------------------------------------------------------------------------- */
+#TOCView {
+  overscroll-behavior: auto;
+}
+
+/* -------------------------------------------------------------------------
+   Share row placement
+   -------------------------------------------------------------------------
+   One share row per viewport. On desktop it lives in the right-hand TOC
+   sidebar (.ta-toc-share-widget); on mobile — where the TOC collapses to a
+   dropdown and there is no right sidebar — it renders at the bottom of the
+   article (.ta-share-bottom) or, when a post opts in, just above its
+   References via the {{< share >}} shortcode (.ta-share-inline).
+   Markup: layouts/_default/single.html + layouts/shortcodes/share.html.
+   ------------------------------------------------------------------------- */
+
+/* Mobile default: TOC-sidebar share hidden; bottom / inline shares visible. */
+.ta-toc-share-widget { display: none; }
+
+@media (min-width: 1024px) {
+  /* Desktop: share moves into the TOC sidebar; the mobile rows step aside. */
+  .ta-toc-share-widget {
+    display: block;
+    margin-top: 1.1rem;
+    padding-top: 1rem;
+    border-top: 1px dotted rgb(var(--color-neutral-300));
+  }
+  .dark .ta-toc-share-widget {
+    border-top-color: rgb(var(--color-neutral-600));
+  }
+  .ta-share-bottom,
+  .ta-share-inline { display: none; }
+}
+
+/* The TOC widget's share row sits flush-left with the TOC list, not centred. */
+.ta-toc-share-widget section { justify-content: flex-start; padding-top: 0; }

@@ -1,0 +1,15 @@
+{{- /*
+  Warning callout — an orange "!" caution box for load-bearing caveats.
+  Usage:
+    {{< warning >}}
+    **Lead-in:** the caveat, in **markdown**.
+    {{< /warning >}}
+  Styling is in assets/css/custom.css (.ta-warning). The "!" mark is decorative;
+  the box carries role="note" for assistive tech.
+*/ -}}
+<div class="ta-warning" role="note">
+  <span class="ta-warning-mark" aria-hidden="true">!</span>
+  <div class="ta-warning-body">
+    {{- .Inner | .Page.RenderString -}}
+  </div>
+</div>
