@@ -223,14 +223,9 @@
     controls.appendChild(resetBtn);
     controls.appendChild(zoomOutBtn);
 
-    var hint = document.createElement('div');
-    hint.className = 'mermaid-zoom-overlay-hint';
-    hint.innerHTML = 'pinch or scroll to zoom &middot; drag to pan &middot; double-tap &middot; esc to close';
-
     overlay.appendChild(closeBtn);
     overlay.appendChild(inner);
     overlay.appendChild(controls);
-    overlay.appendChild(hint);
 
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeZoom(); });
     document.body.appendChild(overlay);
