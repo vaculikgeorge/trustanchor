@@ -161,7 +161,7 @@ pre.mermaid:hover {
   justify-content: center;
   padding: 3rem 2rem 2rem;
   cursor: zoom-out;
-  overflow: auto;
+  overflow: hidden;
   animation: mermaid-zoom-fade 0.18s ease-out;
 }
 
@@ -176,17 +176,16 @@ pre.mermaid:hover {
   max-width: calc(100vw - 4rem);
   max-height: calc(100vh - 6rem);
   background: rgb(var(--color-neutral-100));
-  padding: 1.25rem;
   border-radius: 0.5rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
   cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin: auto;
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  touch-action: none;              /* we drive pan/zoom via Pointer Events */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .mermaid-zoom-inner:active {
@@ -197,53 +196,68 @@ pre.mermaid:hover {
   background: rgb(var(--color-neutral-800));
 }
 
-.mermaid-zoom-inner svg {
+/* The transformed layer — fills the viewport; JS applies translate()+scale(). */
+.mermaid-zoom-stage {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.mermaid-zoom-inner svg,
+.mermaid-zoom-inner img {
   display: block;
-  /* No max/min — let svg-pan-zoom drive the transform. Width/height
-     are stamped onto the SVG element by the JS before init. */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;             /* the whole diagram fits — no clipped edges */
+  pointer-events: none;
 }
 
 /* -------------------------------------------------------------------------
-   svg-pan-zoom control icons (+, -, reset)
-   -------------------------------------------------------------------------
-   svg-pan-zoom injects its own <style id="svg-pan-zoom-controls-styles">
-   block INSIDE the SVG at runtime. That runtime-injected style wins over
-   non-!important external CSS because it's defined later. We override
-   with !important to take back control, and target `fill` + `fill-opacity`
-   (the properties the library actually sets), NOT `opacity`.
+   Zoom controls (+, RESET, -) — bottom-right, stacked above the hint pill.
    ------------------------------------------------------------------------- */
-
-/* Wrapping <g> — children inherit its fill. Default lib: fill black 33%. */
-.svg-pan-zoom-control {
-  cursor: pointer !important;
-  fill: rgb(var(--color-neutral-100)) !important;
-  fill-opacity: 1 !important;
+.mermaid-zoom-controls {
+  position: fixed;
+  right: 1rem;
+  bottom: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  z-index: 10000;
 }
 
-/* Button background <rect>. Default lib: fill white 80%. */
-.svg-pan-zoom-control-background {
-  fill: rgb(var(--color-neutral-800)) !important;
-  fill-opacity: 0.92 !important;
+.mermaid-zoom-btn {
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0 0.6rem;
+  background: rgb(var(--color-neutral-800) / 0.92);
+  color: rgb(var(--color-neutral-100));
+  border: 1px solid rgb(var(--color-neutral-700) / 0.9);
+  border-radius: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-/* Icon glyph paths (+, -, reset). Set fill explicitly rather than relying
-   on inheritance from .svg-pan-zoom-control (covers cases where the lib
-   adds its own attribute on the path). */
-.svg-pan-zoom-control-element {
-  fill: rgb(var(--color-neutral-100)) !important;
-  fill-opacity: 1 !important;
+.mermaid-zoom-btn-reset {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
 }
 
-/* Hover state — primary-blue button, white icon. */
-.svg-pan-zoom-control:hover .svg-pan-zoom-control-background {
-  fill: rgb(var(--color-primary-500)) !important;
-  fill-opacity: 1 !important;
+.mermaid-zoom-btn:hover {
+  background: rgb(var(--color-primary-500));
+  color: rgb(var(--color-neutral));
 }
 
-.svg-pan-zoom-control:hover .svg-pan-zoom-control-element,
-.svg-pan-zoom-control:hover {
-  fill: rgb(var(--color-neutral)) !important;
-  fill-opacity: 1 !important;
+.mermaid-zoom-btn:active {
+  transform: scale(0.94);
 }
 
 /* The instruction hint at the bottom of the overlay (under the SVG). */
@@ -260,7 +274,9 @@ pre.mermaid:hover {
   pointer-events: none;
   user-select: none;
   z-index: 10000;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: min(92vw, 44rem);
+  text-align: center;
   letter-spacing: 0.01em;
 }
 

@@ -142,46 +142,30 @@
 </script>
 
 {{/*
-  Click-to-zoom — fullscreen overlay with real pan/zoom via svg-pan-zoom
-  (lazy-loaded from jsDelivr on first click). Drag to pan, scroll to zoom,
-  pinch on touch, +/- buttons via svg-pan-zoom's built-in controls.
-  Applies to Mermaid blocks (pre.mermaid) AND the master SVG diagram
-  (.ta-diagram img — fetched + inlined on click). CSS in
-  assets/css/custom.css (Mermaid click-to-zoom).
+  Click-to-zoom — fullscreen overlay with a self-contained, transform-based
+  pan/zoom (no external library). Fits the WHOLE diagram on open (no clipped
+  edges), then: drag to pan, wheel or pinch to zoom, double-tap / double-click
+  to zoom in, +/RESET/- buttons, esc to close. Works with mouse, touch, and
+  pen via Pointer Events (touch-action:none so the browser doesn't eat the
+  gestures). Applies to Mermaid blocks (pre.mermaid) AND the master SVG diagram
+  (.ta-diagram img — fetched + inlined on click for crisp vector zoom). CSS in
+  assets/css/custom.css (".mermaid-zoom" block).
 */}}
 <script>
 (function () {
   var OVERLAY_ID = 'mermaid-zoom-overlay';
-  var SVG_PAN_ZOOM_URL = 'https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.2/dist/svg-pan-zoom.min.js';
-  /* TODO before publish: add SRI hash + crossorigin=anonymous for sub-resource integrity. */
-
-  var svgPanZoomPromise = null;
-  function loadSvgPanZoom() {
-    if (window.svgPanZoom) return Promise.resolve();
-    if (svgPanZoomPromise) return svgPanZoomPromise;
-    svgPanZoomPromise = new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = SVG_PAN_ZOOM_URL;
-      s.async = true;
-      s.onload = function () { resolve(); };
-      s.onerror = function () { reject(new Error('svg-pan-zoom load failed')); };
-      document.head.appendChild(s);
-    });
-    return svgPanZoomPromise;
-  }
 
   function closeZoom() {
     var overlay = document.getElementById(OVERLAY_ID);
     if (!overlay) return;
-    if (overlay._panZoom) {
-      try { overlay._panZoom.destroy(); } catch (_) {}
-    }
+    if (overlay._cleanup) { try { overlay._cleanup(); } catch (_) {} }
     overlay.remove();
     document.body.style.overflow = '';
   }
 
-  function openZoom(svg) {
+  function openZoom(node) {
     closeZoom();
+
     var overlay = document.createElement('div');
     overlay.id = OVERLAY_ID;
     overlay.className = 'mermaid-zoom-overlay';
@@ -191,88 +175,196 @@
     var inner = document.createElement('div');
     inner.className = 'mermaid-zoom-inner';
 
-    var cloned = svg.cloneNode(true);
-    if (!cloned.getAttribute('preserveAspectRatio')) {
-      cloned.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    var stage = document.createElement('div');
+    stage.className = 'mermaid-zoom-stage';
+
+    /* Normalise the node so the WHOLE diagram fits (contain) at scale 1 —
+       this is what fixes the clipped-edges-on-open bug. */
+    if (node.nodeName.toLowerCase() === 'svg') {
+      if (!node.getAttribute('preserveAspectRatio')) {
+        node.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      }
+      node.removeAttribute('width');
+      node.removeAttribute('height');
+      node.style.width = '100%';
+      node.style.height = '100%';
+      node.style.display = 'block';
+    } else {
+      node.style.width = '100%';
+      node.style.height = '100%';
+      node.style.objectFit = 'contain';
+      node.style.display = 'block';
     }
-    inner.appendChild(cloned);
+    node.style.pointerEvents = 'none';
+    stage.appendChild(node);
+    inner.appendChild(stage);
 
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'mermaid-zoom-close';
     closeBtn.setAttribute('aria-label', 'Close diagram zoom');
     closeBtn.innerHTML = '&times;';
-    closeBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      closeZoom();
-    });
+    closeBtn.addEventListener('click', function (e) { e.stopPropagation(); closeZoom(); });
+
+    var controls = document.createElement('div');
+    controls.className = 'mermaid-zoom-controls';
+    function mkBtn(label, aria, cls) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mermaid-zoom-btn' + (cls ? ' ' + cls : '');
+      b.setAttribute('aria-label', aria);
+      b.textContent = label;
+      return b;
+    }
+    var zoomInBtn  = mkBtn('+', 'Zoom in');
+    var resetBtn   = mkBtn('RESET', 'Reset zoom', 'mermaid-zoom-btn-reset');
+    var zoomOutBtn = mkBtn('−', 'Zoom out');
+    controls.appendChild(zoomInBtn);
+    controls.appendChild(resetBtn);
+    controls.appendChild(zoomOutBtn);
 
     var hint = document.createElement('div');
     hint.className = 'mermaid-zoom-overlay-hint';
-    hint.innerHTML = 'drag to pan &middot; scroll to zoom &middot; double-click to zoom in &middot; esc to close';
+    hint.innerHTML = 'pinch or scroll to zoom &middot; drag to pan &middot; double-tap &middot; esc to close';
 
     overlay.appendChild(closeBtn);
     overlay.appendChild(inner);
+    overlay.appendChild(controls);
     overlay.appendChild(hint);
-    /* Close on direct backdrop click only — not on clicks inside the
-       inner container (those drag/pan via svg-pan-zoom). */
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeZoom();
-    });
+
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeZoom(); });
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
-    /* svg-pan-zoom requires the SVG to have explicit pixel width/height
-       (not 100% or auto). Compute the container's box and stamp those
-       sizes onto the SVG before initialising the library. */
-    loadSvgPanZoom().then(function () {
-      var rect = inner.getBoundingClientRect();
-      cloned.setAttribute('width', rect.width);
-      cloned.setAttribute('height', rect.height);
-      cloned.style.maxWidth = 'none';
-      cloned.style.maxHeight = 'none';
-      cloned.style.width = rect.width + 'px';
-      cloned.style.height = rect.height + 'px';
+    /* ---- transform-based pan/zoom (mouse + touch + pen) ---- */
+    var scale = 1, tx = 0, ty = 0;
+    var MIN = 1, MAX = 8;
 
-      try {
-        overlay._panZoom = window.svgPanZoom(cloned, {
-          zoomEnabled: true,
-          panEnabled: true,
-          controlIconsEnabled: true,   /* renders +/- /reset buttons */
-          fit: true,
-          center: true,
-          minZoom: 0.5,
-          maxZoom: 20,
-          zoomScaleSensitivity: 0.3,
-          mouseWheelZoomEnabled: true,
-          dblClickZoomEnabled: true,
-          contain: false
-        });
-      } catch (err) {
-        console.error('[mermaid-zoom] svg-pan-zoom init failed:', err);
-        /* Fallback to plain fit-to-viewport */
-        cloned.setAttribute('width', '100%');
-        cloned.setAttribute('height', '100%');
-        cloned.style.width = '100%';
-        cloned.style.height = '100%';
+    function rect() { return inner.getBoundingClientRect(); }
+    function clampScale(s) { return Math.max(MIN, Math.min(MAX, s)); }
+    function clampT() {
+      var r = rect();
+      /* the stage fills the viewport, so keep it covering the viewport */
+      tx = Math.min(0, Math.max(r.width  - r.width  * scale, tx));
+      ty = Math.min(0, Math.max(r.height - r.height * scale, ty));
+    }
+    function apply() {
+      clampT();
+      stage.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+    }
+    function reset() { scale = 1; tx = 0; ty = 0; apply(); }
+
+    function localPoint(clientX, clientY) {
+      var r = rect();
+      return { x: clientX - r.left, y: clientY - r.top };
+    }
+    function zoomAt(newScale, px, py) {
+      newScale = clampScale(newScale);
+      if (newScale === scale) return;
+      var cx = (px - tx) / scale;
+      var cy = (py - ty) / scale;
+      scale = newScale;
+      tx = px - cx * scale;
+      ty = py - cy * scale;
+      apply();
+    }
+    function centerPoint() { var r = rect(); return { x: r.width / 2, y: r.height / 2 }; }
+
+    function onWheel(e) {
+      e.preventDefault();
+      var p = localPoint(e.clientX, e.clientY);
+      zoomAt(scale * Math.pow(1.0015, -e.deltaY), p.x, p.y);
+    }
+    inner.addEventListener('wheel', onWheel, { passive: false });
+
+    var pointers = new Map();
+    var panStart = null;
+    var pinch = null;
+    var tapStart = null;
+    var lastTap = { t: 0, x: 0, y: 0 };
+    function stamp() { return window.performance ? performance.now() : Date.now(); }
+    function dist(a, b) { var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+    function activePts() { return Array.from(pointers.values()); }
+
+    function onDown(e) {
+      try { inner.setPointerCapture(e.pointerId); } catch (_) {}
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 1) {
+        panStart = { x: e.clientX, y: e.clientY, tx: tx, ty: ty };
+        tapStart = { x: e.clientX, y: e.clientY, t: stamp() };
+      } else if (pointers.size === 2) {
+        var p = activePts();
+        var mid = localPoint((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+        pinch = { d0: dist(p[0], p[1]), s0: scale, cx: (mid.x - tx) / scale, cy: (mid.y - ty) / scale };
+        panStart = null;
+        tapStart = null;
       }
-    }).catch(function (err) {
-      console.error('[mermaid-zoom] svg-pan-zoom load failed; falling back to fit-to-viewport:', err);
-      /* Fallback: no library, just show the SVG fit to viewport. */
-      cloned.setAttribute('width', '100%');
-      cloned.setAttribute('height', '100%');
-      cloned.style.width = '100%';
-      cloned.style.height = '100%';
-    });
+    }
+    function onMove(e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size >= 2 && pinch) {
+        var p = activePts();
+        var d = dist(p[0], p[1]);
+        if (pinch.d0 > 0) {
+          scale = clampScale(pinch.s0 * (d / pinch.d0));
+          var mid = localPoint((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+          tx = mid.x - pinch.cx * scale;
+          ty = mid.y - pinch.cy * scale;
+          apply();
+        }
+      } else if (pointers.size === 1 && panStart && scale > MIN + 0.001) {
+        tx = panStart.tx + (e.clientX - panStart.x);
+        ty = panStart.ty + (e.clientY - panStart.y);
+        apply();
+        if (tapStart && dist({ x: e.clientX, y: e.clientY }, tapStart) > 10) tapStart = null;
+      }
+    }
+    function onUp(e) {
+      pointers.delete(e.pointerId);
+      try { inner.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (pointers.size < 2) pinch = null;
+      if (pointers.size === 1) {
+        var p = activePts()[0];
+        panStart = { x: p.x, y: p.y, tx: tx, ty: ty };
+      } else if (pointers.size === 0) {
+        /* double-tap / double-click: quick, with little movement */
+        if (tapStart && dist({ x: e.clientX, y: e.clientY }, tapStart) <= 10) {
+          var now = stamp();
+          if (now - lastTap.t < 320 && dist({ x: e.clientX, y: e.clientY }, lastTap) < 40) {
+            var p2 = localPoint(e.clientX, e.clientY);
+            zoomAt(scale > 1.4 ? MIN : 2.5, p2.x, p2.y);
+            lastTap.t = 0;
+          } else {
+            lastTap = { t: now, x: e.clientX, y: e.clientY };
+          }
+        }
+        panStart = null;
+        tapStart = null;
+      }
+    }
+    inner.addEventListener('pointerdown', onDown);
+    inner.addEventListener('pointermove', onMove);
+    inner.addEventListener('pointerup', onUp);
+    inner.addEventListener('pointercancel', onUp);
+
+    zoomInBtn.addEventListener('click',  function (e) { e.stopPropagation(); var c = centerPoint(); zoomAt(scale * 1.4, c.x, c.y); });
+    zoomOutBtn.addEventListener('click', function (e) { e.stopPropagation(); var c = centerPoint(); zoomAt(scale / 1.4, c.x, c.y); });
+    resetBtn.addEventListener('click',   function (e) { e.stopPropagation(); reset(); });
+
+    overlay._cleanup = function () { inner.removeEventListener('wheel', onWheel); };
+
+    /* Fit on open — next frame so the container has its final measured box. */
+    requestAnimationFrame(reset);
   }
 
-  /* Master diagram is an <img> to a static SVG file — fetch it once,
-     inline it, and feed the same overlay + svg-pan-zoom as Mermaid. */
+  /* Master diagram is an <img> to a static SVG file — fetch it once, inline a
+     clone, and feed the same overlay for crisp vector zoom. */
   var svgFetchCache = {};
   function openImgZoom(img) {
     var src = img.currentSrc || img.src;
     if (!src) return;
-    if (svgFetchCache[src]) { openZoom(svgFetchCache[src]); return; }
+    if (svgFetchCache[src]) { openZoom(svgFetchCache[src].cloneNode(true)); return; }
     fetch(src).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
@@ -280,7 +372,7 @@
       var svg = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
       if (!svg || svg.nodeName.toLowerCase() !== 'svg') throw new Error('parsed node is not <svg>');
       svgFetchCache[src] = svg;
-      openZoom(svg);
+      openZoom(svg.cloneNode(true));
     }).catch(function (err) {
       console.error('[diagram-zoom] could not load SVG; opening in new tab:', err);
       window.open(src, '_blank', 'noopener');
@@ -303,7 +395,7 @@
     var svg = pre.querySelector('svg');
     if (!svg) return; /* mermaid hasn't finished rendering yet */
     e.preventDefault();
-    openZoom(svg);
+    openZoom(svg.cloneNode(true));
   });
 
   document.addEventListener('keydown', function (e) {
