@@ -526,6 +526,21 @@ This post secured the pipeline's *machine* perimeter. The human one — who may 
 JIT-elevated and never able to clear their own change — is its companion:
 **[JIT ADO access via PIM groups and CA auth contexts](/posts/jit-ado-via-pim-and-ca-auth-contexts/)**.
 
+<style>
+.li-embed { max-width: 504px; margin: 1.75rem auto; }
+.li-embed iframe { width: 100%; aspect-ratio: 504 / 839; border: 0; display: block; }
+.li-embed figcaption { text-align: center; font-size: 0.9em; opacity: 0.75; margin-top: 0.5rem; }
+</style>
+
+<figure class="li-embed">
+  <iframe
+    src="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7492864792047632384"
+    title="Secret-less ADO runners with WIF: companion video (LinkedIn)"
+    allowfullscreen
+    loading="lazy"></iframe>
+  <figcaption>Companion video on LinkedIn.</figcaption>
+</figure>
+
 {{< share >}}
 
 **References:**
