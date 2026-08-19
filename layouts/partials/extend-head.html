@@ -1192,8 +1192,11 @@
   /* Post single pages — widen content beyond the default 65ch prose cap.
      50rem scales with html font-size: at 20px it resolves to 1000px
      (same character-count per line as 800px at 16px — browser-zoom behaviour). */
+  /* Header spans the full container so the title and the right-aligned Share
+     button line up with the author + videos band below (which is full-width).
+     The article body + footer stay capped at 50rem for readable line length. */
   #single_header {
-    max-width: 50rem;
+    max-width: none;
   }
   .article-content {
     max-width: 50rem;

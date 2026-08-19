@@ -410,3 +410,128 @@ pre.mermaid:hover .mermaid-zoom-hint {
 
 /* The TOC widget's share row sits flush-left with the TOC list, not centred. */
 .ta-toc-share-widget section { justify-content: flex-start; padding-top: 0; }
+
+/* -------------------------------------------------------------------------
+   LinkedIn video embeds (.ta-li-videos)
+   -------------------------------------------------------------------------
+   One or two LinkedIn post embeds via the {{< li-videos >}} shortcode. Side by
+   side on a wide column, stacked once the pair no longer fits (flex-wrap). Each
+   card is capped well below LinkedIn's native 504px so two fit the content
+   column; the 504/839 aspect-ratio matches the embed's portrait card so height
+   scales with width. If a card looks cramped at a given width, raise max-width.
+   ------------------------------------------------------------------------- */
+.ta-li-videos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.25rem;
+  margin: 1.75rem auto;
+}
+.ta-li-videos .ta-li-embed {
+  flex: 1 1 300px;
+  max-width: 340px;
+  margin: 0;
+}
+.ta-li-videos .ta-li-embed iframe {
+  width: 100%;
+  aspect-ratio: 504 / 839;
+  border: 0;
+  display: block;
+  border-radius: 6px;
+}
+.ta-li-videos .ta-li-embed figcaption {
+  text-align: center;
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-top: 0.4rem;
+}
+
+/* Compact player (?compact=1) renders 3:4 portrait (not the tall 504x839 card). */
+.ta-li-videos--compact .ta-li-embed iframe { aspect-ratio: 3 / 4; }
+
+/* Float variant: tuck the pair into the top-right of the body, text wraps left.
+   Stacks vertically inside the float. Below the desktop breakpoint (where the
+   TOC sidebar itself collapses) it reverts to a normal centred block so it
+   never crowds a narrow column. */
+.ta-li-videos--float {
+  float: right;
+  width: min(40%, 250px);
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0.3rem 0 1.25rem 1.75rem;
+}
+.ta-li-videos--float .ta-li-embed { max-width: none; flex: 0 0 auto; }
+/* Landscape compact players need a wider float column than portrait cards. */
+.ta-li-videos--float.ta-li-videos--compact { width: min(48%, 380px); }
+
+@media (max-width: 1023px) {
+  .ta-li-videos--float {
+    float: none;
+    width: auto;
+    flex-direction: row;
+    margin: 1.75rem auto;
+  }
+  .ta-li-videos--float .ta-li-embed { max-width: 340px; flex: 1 1 300px; }
+}
+
+/* Clears a preceding float so a full-width element (e.g. a wide diagram) starts
+   on its own line instead of wrapping beside the floated videos. */
+.ta-clear { clear: both; }
+
+/* -------------------------------------------------------------------------
+   Author + LinkedIn videos header band (.ta-avband / .ta-avrow / .ta-avvideos)
+   -------------------------------------------------------------------------
+   Rendered by layouts/_default/single.html from front-matter `liVideos`: the
+   author card on the left, the compact players pushed hard-right so their edge
+   meets the container / TOC right edge. NOTE: class names are deliberately NOT
+   `.ta-author-row` — the homepage defines that in extend-head.html with
+   justify-content:center, which would override these and centre the card.
+   The compact (?compact=1) player renders 3:4 portrait, so the box uses that
+   ratio to avoid letterboxing. Videos drop below the author on narrow widths.
+   ------------------------------------------------------------------------- */
+.ta-avband {
+  width: 100%;
+  margin: 0 0 1.5rem 0;
+}
+.ta-avband .ta-post-author { margin-bottom: 0; height: 100%; }
+.ta-avrow {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 1.25rem;
+  align-items: stretch;
+  width: 100%;
+}
+/* Author card grows to fill whatever the videos leave, so with one video it
+   spreads into the freed space instead of leaving a gap; the videos stay a fixed
+   size, pushed to the right edge by the growing card. */
+.ta-avrow-author { flex: 1 1 auto; min-width: 240px; }
+.ta-avvideos {
+  display: flex;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+/* Fixed width; the 3:4 ratio sets the height (210px => ~280px tall), sized to sit
+   level with the author card. Matching the videos to the card's height via the
+   row was unstable — a tall card made them wide enough to overflow the row and
+   push the page into horizontal scroll — so this is a stable fixed size. Nudge
+   the width to fine-tune the height against the card. */
+.ta-avvideos .ta-avvideo { margin: 0; width: 210px; max-width: 44vw; }
+.ta-avvideos .ta-avvideo iframe {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 0;
+  display: block;
+  border-radius: 6px;
+}
+
+/* Below desktop (where the TOC also collapses) let the row wrap: author full
+   width, videos below. */
+@media (max-width: 1023px) {
+  .ta-avrow { flex-wrap: wrap; }
+  .ta-avvideos { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .ta-avvideos { width: 100%; }
+  .ta-avvideos .ta-avvideo { flex: 1 1 0; width: auto; max-width: none; }
+}

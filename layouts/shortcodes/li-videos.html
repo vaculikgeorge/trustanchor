@@ -1,0 +1,49 @@
+{{- /*
+  LinkedIn video embeds — one or two responsive LinkedIn post embeds. These are
+  third-party frames served from linkedin.com (LinkedIn sets its own cookies
+  when they load).
+
+  Usage — pass the numeric ID(s) from the embed URL
+  (https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:<ID>):
+
+    {{< li-videos
+        id1="7492864792047632384" cap1="The walkthrough"
+        id2="0000000000000000000"  cap2="The deep dive"
+        compact="true" float="true" >}}
+
+  Params:
+    id1 / id2      numeric post IDs (id2 optional — one video renders alone)
+    type1 / type2  URN type, default "ugcPost" (also "share" / "activity")
+    cap1 / cap2    optional captions
+    compact        "true" => ?compact=1 short player (504x399 vs 504x839)
+    float          "true" => float top-right of the body, text wraps beside it;
+                   reverts to a centred, stacked block below 1024px
+
+  Styling: .ta-li-videos in assets/css/custom.css.
+*/ -}}
+{{- $id1 := .Get "id1" -}}
+{{- $id2 := .Get "id2" -}}
+{{- $type1 := or (.Get "type1") "ugcPost" -}}
+{{- $type2 := or (.Get "type2") "ugcPost" -}}
+{{- $cap1 := .Get "cap1" -}}
+{{- $cap2 := .Get "cap2" -}}
+{{- $compact := eq (.Get "compact") "true" -}}
+{{- $float := eq (.Get "float") "true" -}}
+{{- $q := cond $compact "?compact=1" "" -}}
+{{- $class := "ta-li-videos" -}}
+{{- if $compact }}{{ $class = printf "%s ta-li-videos--compact" $class }}{{ end -}}
+{{- if $float }}{{ $class = printf "%s ta-li-videos--float" $class }}{{ end -}}
+<div class="{{ $class }}">
+  {{- with $id1 -}}
+  <figure class="ta-li-embed">
+    <iframe src="https://www.linkedin.com/embed/feed/update/urn:li:{{ $type1 }}:{{ . }}{{ $q }}" title="LinkedIn video" allowfullscreen loading="lazy"></iframe>
+    {{- with $cap1 }}<figcaption>{{ . }}</figcaption>{{ end -}}
+  </figure>
+  {{- end -}}
+  {{- with $id2 -}}
+  <figure class="ta-li-embed">
+    <iframe src="https://www.linkedin.com/embed/feed/update/urn:li:{{ $type2 }}:{{ . }}{{ $q }}" title="LinkedIn video" allowfullscreen loading="lazy"></iframe>
+    {{- with $cap2 }}<figcaption>{{ . }}</figcaption>{{ end -}}
+  </figure>
+  {{- end -}}
+</div>

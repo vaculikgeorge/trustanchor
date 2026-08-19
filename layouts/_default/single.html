@@ -41,10 +41,34 @@
           {{ partial "sharing-links.html" . }}
         </div>
       </div>
+      {{/* Author card renders inside the width-capped header only for posts
+           WITHOUT header videos. With videos it moves to the full-width band
+           below (#single_header caps at 50rem, which would keep the videos from
+           reaching the container / TOC right edge). */}}
       {{ if not (.Params.showAuthorBottom | default (site.Params.article.showAuthorBottom | default false)) }}
-        {{ template "SingleAuthor" . }}
+        {{ if not .Params.liVideos }}
+          {{ template "SingleAuthor" . }}
+        {{ end }}
       {{ end }}
     </header>
+
+    {{/* Full-width author + videos band — deliberately OUTSIDE #single_header so
+         it spans the whole container and the videos align hard-right with the
+         TOC's right edge below. Only renders for posts that declare liVideos. */}}
+    {{ if and (not (.Params.showAuthorBottom | default (site.Params.article.showAuthorBottom | default false))) .Params.liVideos }}
+      <div class="ta-avband">
+        <div class="ta-avrow">
+          <div class="ta-avrow-author">{{ template "SingleAuthor" . }}</div>
+          <div class="ta-avvideos print:hidden">
+            {{ range .Params.liVideos }}
+              <figure class="ta-avvideo">
+                <iframe src="https://www.linkedin.com/embed/feed/update/urn:li:{{ (.type | default "ugcPost") }}:{{ .id }}?compact=1" title="{{ .cap | default "LinkedIn video" }}" allowfullscreen loading="lazy"></iframe>
+              </figure>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    {{ end }}
 
     {{/* Body */}}
     <section class="flex flex-col max-w-full mt-0 prose dark:prose-invert lg:flex-row">

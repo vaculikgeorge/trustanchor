@@ -4,6 +4,9 @@ date = '2026-07-25T10:00:00+02:00'
 tags = ['azure-devops', 'managed-identity', 'aci', 'devsecops', 'wif', 'service-connection', 'workload-identity-federation', 'microsoft-hosted-agents']
 categories = ['Secure Delivery']
 showShareBottom = false
+liVideos = [
+  { id = "7492864792047632384", cap = "The walkthrough" },
+]
 summary = 'A build pipeline is one of the most privileged identities in your tenant — the service principals and managed identities behind it form a perimeter into the platform. Workload Identity Federation makes the pipeline auth to Azure, Microsoft Graph, other API endpoints, and Azure DevOps secret-less on any runner; a user-assigned managed identity does the same for registering a self-hosted runner. This post covers both, and why PATs, client secrets, and certificates are the credentials to design out.'
 +++
 
@@ -525,21 +528,6 @@ the one that never leaks.
 This post secured the pipeline's *machine* perimeter. The human one — who may approve a run,
 JIT-elevated and never able to clear their own change — is its companion:
 **[JIT ADO access via PIM groups and CA auth contexts](/posts/jit-ado-via-pim-and-ca-auth-contexts/)**.
-
-<style>
-.li-embed { max-width: 504px; margin: 1.75rem auto; }
-.li-embed iframe { width: 100%; aspect-ratio: 504 / 839; border: 0; display: block; }
-.li-embed figcaption { text-align: center; font-size: 0.9em; opacity: 0.75; margin-top: 0.5rem; }
-</style>
-
-<figure class="li-embed">
-  <iframe
-    src="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7492864792047632384"
-    title="Secret-less ADO runners with WIF: companion video (LinkedIn)"
-    allowfullscreen
-    loading="lazy"></iframe>
-  <figcaption>Companion video on LinkedIn.</figcaption>
-</figure>
 
 {{< share >}}
 
