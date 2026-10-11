@@ -456,8 +456,13 @@ service-connection creators.
 
 Applying the pattern to an organization that already exists is a different job, because just-in-time
 membership governs only the membership you made just-in-time. Any other route to the same authority is
-untouched by it. If a person reaches an organization without activating, one of these routes is still
-open.
+untouched by it. The resource policy does not close these routes; it holds them back until the person
+activates. The policy targets the Azure DevOps application, and Entra validates the tenant's policies
+at sign-in to every organization the tenant backs
+([Conditional Access behavior on web](https://learn.microsoft.com/azure/devops/organizations/accounts/conditional-access-policies?view=azure-devops#conditional-access-behavior-on-web)).
+Activating any just-in-time group, even the reader group, therefore lifts the block in all of them,
+and every standing right the person still holds works again for that window, in other projects and
+other organizations too.
 
 There are six such routes, and five of them are memberships:
 
@@ -471,9 +476,8 @@ There are six such routes, and five of them are memberships:
 | 6 | **Approval authority** on a pipeline environment, a service connection, a classic release gate, or as a required reviewer in a branch policy | Yes, see [below](#approval-authority) |
 
 Routes 3, 4 and 5 share one remedy: replace direct human members with one eligible group per scope,
-and never add a human directly again. Route 1 stays, because an access level carries no permission and
-the resource policy keeps it from reaching Azure DevOps without an activation. Route 2, the owner,
-cannot be removed, only given to a dedicated account. Route 6 is different in kind.
+and never add a human directly again. Route 1 stays, because an access level carries no permission.
+Route 2, the owner, cannot be removed, only given to a dedicated account. Route 6 is different in kind.
 
 #### The sixth route: approval authority {#approval-authority}
 
