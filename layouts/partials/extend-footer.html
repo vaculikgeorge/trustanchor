@@ -5,6 +5,8 @@
   cross-origin request (CORS), falls back to opening the subscribe page
   in a new tab instead of redirecting away from the current post.
 */}}
+{{/* Announced by screen readers on every link render-link.html opens in a new tab (aria-describedby). */}}
+<span id="ta-newtab-note" hidden>opens in a new tab</span>
 {{/* 404 renders its own subscribe box in-page, so skip this site-wide one there (avoids a duplicate). */}}
 {{ if ne .Kind "404" }}
 <div id="subscribe" class="mt-6 mb-4 mx-auto max-w-md text-center" data-bd-wrapper>

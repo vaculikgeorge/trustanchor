@@ -535,3 +535,26 @@ pre.mermaid:hover .mermaid-zoom-hint {
   .ta-avvideos { width: 100%; }
   .ta-avvideos .ta-avvideo { flex: 1 1 0; width: auto; max-width: none; }
 }
+
+/* -------------------------------------------------------------------------
+   Link kinds — classes set by layouts/_default/_markup/render-link.html
+   -------------------------------------------------------------------------
+   A marker before links to this site, an arrow after links that leave it.
+   Pseudo-elements keep both out of copied text; the "/ ''" alt text keeps
+   them out of screen-reader output (browsers without it use the first line).
+   ------------------------------------------------------------------------- */
+
+a.ta-link-own::before {
+  content: "\00BB";
+  content: "\00BB" / "";
+  margin-right: 0.2em;
+  opacity: 0.75;
+}
+
+a.ta-link-ext::after {
+  content: "\2197\FE0E";
+  content: "\2197\FE0E" / "";
+  margin-left: 0.12em;
+  font-size: 0.8em;
+  opacity: 0.75;
+}

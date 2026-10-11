@@ -1,0 +1,48 @@
+{{/* From Hugo, Apache v2 license
+  https://github.com/gohugoio/hugo/blob/master/tpl/tplimpl/embedded/templates/_markup/render-link.html
+  Trust Anchor override of the Blowfish hook. Every link except a same-page anchor opens in a new
+  tab; ta-link-own marks links that stay on this site, ta-link-ext links that leave it. custom.css
+  draws the markers, extend-footer.html holds the ta-newtab-note that screen readers announce.
+*/}}
+{{- $u := urls.Parse .Destination -}}
+{{- $href := $u.String -}}
+{{- $samePage := strings.HasPrefix $u.String "#" -}}
+{{- if $samePage -}}
+  {{- $href = printf "%s#%s" .PageInner.RelPermalink $u.Fragment -}}
+{{- else if and $href (not $u.IsAbs) -}}
+  {{- $path := strings.TrimPrefix "./" $u.Path -}}
+  {{- with or
+    ($.PageInner.GetPage $path)
+    ($.PageInner.Resources.Get $path)
+    (resources.Get $path)
+  -}}
+    {{- $href = .RelPermalink -}}
+    {{- with $u.RawQuery -}}
+      {{- $href = printf "%s?%s" $href . -}}
+    {{- end -}}
+    {{- with $u.Fragment -}}
+      {{- $href = printf "%s#%s" $href . -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $samePage = eq (index (split $href "#") 0) $.PageInner.RelPermalink -}}
+{{- end -}}
+
+{{/* mailto: and other non-web schemes keep the default behaviour. */}}
+{{- $kind := "" -}}
+{{- if not $samePage -}}
+  {{- if not $u.IsAbs -}}
+    {{- if $href }}{{ $kind = "own" }}{{ end -}}
+  {{- else if in (slice "http" "https") (lower $u.Scheme) -}}
+    {{- if eq (lower $u.Host) (lower (urls.Parse site.BaseURL).Host) -}}
+      {{- $kind = "own" -}}
+    {{- else -}}
+      {{- $kind = "ext" -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+<a href="{{ $href }}" {{ with .Title }}title="{{ . }}"{{ end }}
+  {{- with $kind }} class="ta-link-{{ . }}" target="_blank" rel="{{ if eq . "ext" }}noreferrer{{ else }}noopener{{ end }}" aria-describedby="ta-newtab-note"{{ end }}>
+  {{- .Text | safeHTML -}}
+</a>
+{{- /* Trim EOF */ -}}
